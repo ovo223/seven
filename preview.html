@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 员工聊天 MVP</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: #f4f7f5;
+        color: #17201b;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      .app {
+        display: grid;
+        min-height: 0;
+        grid-template-columns: 320px 1fr;
+      }
+
+      aside {
+        border-right: 1px solid rgba(23, 32, 27, 0.08);
+        background: #fff;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 24px;
+      }
+
+      main {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+      }
+
+      .logo,
+      .chat-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .logo {
+        font-weight: 800;
+      }
+
+      .avatar {
+        display: grid;
+        width: 56px;
+        height: 56px;
+        place-items: center;
+        border-radius: 12px;
+        background: #17201b;
+        color: #fff;
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      .employee {
+        margin-top: 32px;
+      }
+
+      .employee h1 {
+        margin-top: 16px;
+        font-size: 28px;
+      }
+
+      .muted {
+        color: rgba(23, 32, 27, 0.62);
+        line-height: 1.65;
+      }
+
+      .wallet {
+        margin-top: 28px;
+        border-radius: 12px;
+        background: #f4f7f5;
+        padding: 18px;
+      }
+
+      .wallet strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 32px;
+      }
+
+      label {
+        display: block;
+        margin-top: 18px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        margin-top: 8px;
+        border: 1px solid rgba(23, 32, 27, 0.12);
+        border-radius: 10px;
+        background: #fff;
+        padding: 12px;
+        outline: 0;
+      }
+
+      input:focus,
+      textarea:focus {
+        border-color: #0f766e;
+      }
+
+      .btn {
+        border: 0;
+        border-radius: 10px;
+        background: #17201b;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .btn.secondary {
+        border: 1px solid rgba(23, 32, 27, 0.12);
+        background: #fff;
+        color: #17201b;
+      }
+
+      .fund-row {
+        display: grid;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .fund-row input {
+        margin-top: 0;
+      }
+
+      .fund-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .income-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .wallet-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .income-card {
+        border-radius: 10px;
+        background: #fff;
+        padding: 12px;
+      }
+
+      .income-card span {
+        color: rgba(23, 32, 27, 0.56);
+        font-size: 12px;
+      }
+
+      .income-card strong {
+        margin-top: 4px;
+        font-size: 16px;
+      }
+
+      .note {
+        margin-top: 16px;
+        border-radius: 10px;
+        background: #e6f6f1;
+        padding: 12px;
+        color: #0f766e;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .chat-head {
+        flex-shrink: 0;
+        border-bottom: 1px solid rgba(23, 32, 27, 0.08);
+        background: rgba(255, 255, 255, 0.86);
+        padding: 18px 24px;
+        backdrop-filter: blur(12px);
+      }
+
+      .balance-pill {
+        border-radius: 999px;
+        background: #e6f6f1;
+        padding: 8px 12px;
+        color: #0f766e;
+        font-size: 14px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .mobile-balance {
+        display: none;
+      }
+
+      .auth-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .auth-actions button {
+        min-width: 64px;
+        height: 36px;
+        border-radius: 999px;
+        padding: 0 16px;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .logged-in-only {
+        display: none;
+      }
+
+      body.is-logged-in .logged-in-only {
+        display: block;
+      }
+
+      body.is-logged-in .mobile-balance {
+        display: none;
+      }
+
+      .messages {
+        flex: 1;
+        padding: 24px;
+      }
+
+      @media (min-width: 1280px) {
+        body {
+          overflow: hidden;
+        }
+
+        .app {
+          height: 100vh;
+          overflow: hidden;
+        }
+
+        main {
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        .messages {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+        }
+      }
+
+      .message {
+        max-width: min(680px, 82%);
+        margin-bottom: 14px;
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px 16px;
+        box-shadow: 0 10px 30px rgba(23, 32, 27, 0.06);
+        line-height: 1.7;
+      }
+
+      .message.user {
+        margin-left: auto;
+        background: #17201b;
+        color: #fff;
+      }
+
+      .composer {
+        flex-shrink: 0;
+        border-top: 1px solid rgba(23, 32, 27, 0.08);
+        background: #fff;
+        padding: 18px 24px;
+      }
+
+      .composer-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 72px;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      textarea {
+        height: 64px;
+        min-height: 64px;
+        resize: none;
+      }
+
+      .send {
+        height: 64px;
+        width: 72px;
+        padding: 0;
+      }
+
+      .composer textarea {
+        margin-top: 0;
+        padding: 18px 16px;
+      }
+
+      .status {
+        min-height: 20px;
+        margin-top: 10px;
+        color: #0f766e;
+        font-size: 14px;
+      }
+
+      @media (max-width: 1279px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .desktop-balance {
+          display: none;
+        }
+
+        .mobile-balance {
+          order: 3;
+          width: 100%;
+          text-align: center;
+        }
+
+        .auth-actions {
+          display: flex;
+          gap: 6px;
+        }
+
+        .auth-actions button {
+          min-width: 52px;
+          height: 32px;
+          padding: 0 12px;
+          font-size: 12px;
+        }
+
+        aside {
+          border-right: 0;
+          border-bottom: 1px solid rgba(23, 32, 27, 0.08);
+          max-height: none;
+          padding: 12px;
+        }
+
+        main {
+          min-height: 0;
+        }
+
+        .logo {
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .logo .avatar {
+          width: 36px !important;
+          height: 36px !important;
+          font-size: 14px !important;
+        }
+
+        .balance-pill {
+          padding: 6px 10px;
+          font-size: 11px;
+        }
+
+        .employee {
+          display: block;
+          margin-top: 12px;
+        }
+
+        .employee > .avatar {
+          width: 40px;
+          height: 40px;
+          font-size: 18px;
+        }
+
+        .employee h1 {
+          margin-top: 8px;
+          font-size: 26px;
+        }
+
+        .wallet {
+          display: block;
+          margin-top: 12px;
+          padding: 12px;
+        }
+
+        .wallet strong {
+          margin-top: 4px;
+          font-size: 26px;
+        }
+
+        label {
+          margin-top: 8px;
+        }
+
+        .income-grid,
+        .wallet-actions {
+          margin-top: 8px;
+        }
+
+        .note {
+          display: block;
+          margin-top: 12px;
+          padding: 12px;
+        }
+
+        .chat-head {
+          padding: 16px;
+        }
+
+        .messages {
+          flex: 0 0 auto;
+          height: 42vh;
+          min-height: 320px;
+          overflow-y: auto;
+          padding: 16px;
+        }
+
+        .composer {
+          padding: 12px;
+        }
+
+        .composer-row {
+          grid-template-columns: minmax(0, 1fr) 64px;
+          gap: 10px;
+        }
+
+        textarea,
+        .send {
+          height: 56px;
+          min-height: 56px;
+        }
+
+        .send {
+          width: 64px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        body.is-logged-in .mobile-balance {
+          display: block;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside>
+        <div class="logo">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <div class="avatar" style="width: 36px; height: 36px; font-size: 14px">AI</div>
+            <span style="white-space: nowrap">AI员工</span>
+          </div>
+          <div class="balance-pill mobile-balance logged-in-only" id="balanceTopMobile">用户 ¥100.00 · AI ¥10.00</div>
+          <div class="auth-actions">
+            <button class="btn secondary" type="button" onclick="login()">登录</button>
+            <button class="btn" type="button" onclick="login()">注册</button>
+          </div>
+        </div>
+
+        <section class="employee">
+          <div class="avatar">M</div>
+          <h1>Mira</h1>
+          <p class="muted">您的 AI 数字员工，负责接收任务和回复消息，以及帮您创造收益。</p>
+        </section>
+
+        <section class="wallet logged-in-only">
+          <p class="muted">用户钱包</p>
+          <strong id="userBalanceSide">¥100.00</strong>
+          <label for="userWalletAmount">充值 / 提现金额</label>
+          <input id="userWalletAmount" type="number" min="1" value="100" />
+          <div class="wallet-actions">
+            <button class="btn" type="button" onclick="rechargeUserWallet()">充值</button>
+            <button class="btn secondary" type="button" onclick="withdrawUserWallet()">提现</button>
+          </div>
+        </section>
+
+        <section class="wallet logged-in-only">
+          <p class="muted">AI 员工钱包</p>
+          <strong id="balanceSide">¥10.00</strong>
+          <div class="income-grid">
+            <div class="income-card">
+              <span>当日收益</span>
+              <strong>¥0.00</strong>
+            </div>
+            <div class="income-card">
+              <span>总收益</span>
+              <strong>¥0.00</strong>
+            </div>
+          </div>
+          <label for="aiWalletAmount">拨款 / 取回金额</label>
+          <div class="fund-row">
+            <input id="aiWalletAmount" type="number" min="1" value="10" />
+            <div class="fund-buttons">
+              <button class="btn" type="button" onclick="fundWallet()">拨款</button>
+              <button class="btn secondary" type="button" onclick="withdrawFromAiWallet()">取回</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="note logged-in-only">规则：拨款会从用户钱包转入 AI 员工钱包，取回则反向转回用户钱包。</div>
+      </aside>
+
+      <main>
+        <header class="chat-head">
+          <div>
+            <h2>和 Mira 聊天</h2>
+          </div>
+          <div class="balance-pill desktop-balance logged-in-only" id="balanceTop">用户 ¥100.00 · AI ¥10.00</div>
+        </header>
+
+        <section class="messages" id="messages">
+          <div class="message">你好，我是 Mira。你可以直接给我一个任务。</div>
+        </section>
+
+        <footer class="composer">
+          <div class="composer-row">
+            <textarea id="input" placeholder="输入你想让 AI 员工做什么..."></textarea>
+            <button class="btn send" type="button" onclick="sendMessage()">发送</button>
+          </div>
+          <div class="status" id="status"></div>
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      let userBalance = 100;
+      let aiBalance = 10;
+
+      function login() {
+        document.body.classList.add("is-logged-in");
+      }
+
+      function updateBalance() {
+        document.getElementById("userBalanceSide").textContent = `¥${userBalance.toFixed(2)}`;
+        document.getElementById("balanceSide").textContent = `¥${aiBalance.toFixed(2)}`;
+        const balanceText = `用户 ¥${userBalance.toFixed(2)} · AI ¥${aiBalance.toFixed(2)}`;
+        document.getElementById("balanceTop").textContent = balanceText;
+        document.getElementById("balanceTopMobile").textContent = balanceText;
+      }
+
+      function addMessage(content, role) {
+        const messages = document.getElementById("messages");
+        const node = document.createElement("div");
+        node.className = role === "user" ? "message user" : "message";
+        node.textContent = content;
+        messages.appendChild(node);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function sendMessage() {
+        const input = document.getElementById("input");
+        const status = document.getElementById("status");
+        const text = input.value.trim();
+
+        if (!text) return;
+
+        addMessage(text, "user");
+        addMessage(`收到。我会处理这个任务：「${text}」。`, "assistant");
+        status.textContent = "";
+        input.value = "";
+      }
+
+      function fundWallet() {
+        const amount = Number(document.getElementById("aiWalletAmount").value);
+        const status = document.getElementById("status");
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          status.textContent = "请输入有效拨款金额。";
+          return;
+        }
+
+        if (userBalance < amount) {
+          status.textContent = "用户钱包余额不足，无法拨款。";
+          return;
+        }
+
+        userBalance = Number((userBalance - amount).toFixed(2));
+        aiBalance = Number((aiBalance + amount).toFixed(2));
+        updateBalance();
+        status.textContent = `已从用户钱包给 Mira 拨款 ¥${amount.toFixed(2)}。`;
+      }
+
+      function rechargeUserWallet() {
+        const amount = Number(document.getElementById("userWalletAmount").value);
+        const status = document.getElementById("status");
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          status.textContent = "请输入有效充值金额。";
+          return;
+        }
+
+        userBalance = Number((userBalance + amount).toFixed(2));
+        updateBalance();
+        status.textContent = `用户钱包已充值 ¥${amount.toFixed(2)}。`;
+      }
+
+      function withdrawUserWallet() {
+        const amount = Number(document.getElementById("userWalletAmount").value);
+        const status = document.getElementById("status");
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          status.textContent = "请输入有效提现金额。";
+          return;
+        }
+
+        if (userBalance < amount) {
+          status.textContent = "用户钱包余额不足，无法提现。";
+          return;
+        }
+
+        userBalance = Number((userBalance - amount).toFixed(2));
+        updateBalance();
+        status.textContent = `用户钱包已提现 ¥${amount.toFixed(2)}。`;
+      }
+
+      function withdrawFromAiWallet() {
+        const amount = Number(document.getElementById("aiWalletAmount").value);
+        const status = document.getElementById("status");
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          status.textContent = "请输入有效取回金额。";
+          return;
+        }
+
+        if (aiBalance < amount) {
+          status.textContent = "AI 员工钱包余额不足，无法取回。";
+          return;
+        }
+
+        aiBalance = Number((aiBalance - amount).toFixed(2));
+        userBalance = Number((userBalance + amount).toFixed(2));
+        updateBalance();
+        status.textContent = `已从 Mira 钱包取回 ¥${amount.toFixed(2)} 到用户钱包。`;
+      }
+
+      document.getElementById("input").addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+
+      updateBalance();
+    </script>
+  </body>
+</html>

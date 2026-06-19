@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f6f8f7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(215, 246, 238, 0.45), transparent 420px),
+    #f6f8f7;
+  color: #17201b;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: #d7f6ee;
+}
+
+.mobile-top-balance {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .mobile-top-balance {
+    display: block;
+  }
+}
