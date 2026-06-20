@@ -17,12 +17,25 @@ type Message = {
   content: string;
 };
 
+type AuthMode = "login" | "register";
+
+type FrontendAccount = {
+  email: string;
+  password: string;
+};
+
+const frontendAccountKey = "ai-employee-frontend-account";
+
 export default function HomePage() {
   const [state, setState] = useState<PlatformState>(defaultPlatformState);
   const [userWalletAmount, setUserWalletAmount] = useState("100");
   const [aiWalletAmount, setAiWalletAmount] = useState("10");
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("");
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
   const [isReplying, setIsReplying] = useState(false);
   const [isWalletBusy, setIsWalletBusy] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -86,12 +99,73 @@ export default function HomePage() {
 
   const canSend = input.trim().length > 0 && !isReplying;
 
+  function openAuth(mode: AuthMode) {
+    setAuthMode(mode);
+    setAuthMessage("");
+    setAuthPassword("");
+  }
+
+  function closeAuth() {
+    setAuthMode(null);
+    setAuthMessage("");
+  }
+
   function updateState(patch: Partial<PlatformState>) {
     const nextState = { ...state, ...patch };
     setState(nextState);
     writePlatformState(nextState);
 
     return nextState;
+  }
+
+  function readFrontendAccount(): FrontendAccount | null {
+    try {
+      const raw = window.localStorage.getItem(frontendAccountKey);
+      return raw ? (JSON.parse(raw) as FrontendAccount) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function submitAuth(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const email = authEmail.trim().toLowerCase();
+    const password = authPassword.trim();
+
+    if (!email || !password) {
+      setAuthMessage(authMode === "login" ? "请输入账号和密码。" : "请输入邮箱和密码。");
+      return;
+    }
+
+    if (authMode === "register" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthMessage("请输入有效邮箱。");
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthMessage("密码至少需要 6 位。");
+      return;
+    }
+
+    const account = readFrontendAccount();
+
+    if (authMode === "register") {
+      window.localStorage.setItem(frontendAccountKey, JSON.stringify({ email, password }));
+      updateState({ isLoggedIn: true });
+      setStatus(`已注册并登录：${email}`);
+      closeAuth();
+      return;
+    }
+
+    if (!account || account.email !== email || account.password !== password) {
+      setAuthMessage("账号或密码错误，请先注册或重新输入。");
+      return;
+    }
+
+    updateState({ isLoggedIn: true });
+    setStatus(`已登录：${email}`);
+    closeAuth();
   }
 
   async function recordOrder({
@@ -333,14 +407,14 @@ export default function HomePage() {
           <div className="flex shrink-0 items-center gap-1.5 xl:gap-2">
             <button
               type="button"
-              onClick={() => updateState({ isLoggedIn: true })}
+              onClick={() => openAuth("login")}
               className="h-8 min-w-[52px] whitespace-nowrap rounded-full border border-black/10 bg-white px-3 text-xs font-semibold text-ink transition hover:bg-cloud xl:h-9 xl:min-w-[64px] xl:px-4 xl:text-sm"
             >
               登录
             </button>
             <button
               type="button"
-              onClick={() => updateState({ isLoggedIn: true })}
+              onClick={() => openAuth("register")}
               className="h-8 min-w-[52px] whitespace-nowrap rounded-full bg-ink px-3 text-xs font-semibold text-white transition hover:bg-jade xl:h-9 xl:min-w-[64px] xl:px-4 xl:text-sm"
             >
               注册
@@ -520,6 +594,80 @@ export default function HomePage() {
           <div className="mt-2 min-h-5 text-sm text-clay">{status}</div>
         </footer>
       </section>
+
+      {authMode ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4">
+          <form
+            onSubmit={submitAuth}
+            className="w-full max-w-sm rounded-lg bg-white p-5 shadow-soft"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {authMode === "login" ? "登录账号" : "注册账号"}
+                </h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  {authMode === "login" ? "请输入账号和密码后继续。" : "请输入邮箱和密码完成注册。"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAuth}
+                className="rounded-full px-2 py-1 text-sm font-semibold text-ink/55 transition hover:bg-cloud hover:text-ink"
+                aria-label="关闭"
+              >
+                ×
+              </button>
+            </div>
+
+            <label className="mt-5 block">
+              <span className="text-sm font-medium">
+                {authMode === "login" ? "账号" : "邮箱"}
+              </span>
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(event) => setAuthEmail(event.target.value)}
+                autoComplete="email"
+                className="mt-2 w-full rounded-lg border border-black/10 bg-cloud px-3 py-3 outline-none transition focus:border-jade"
+              />
+            </label>
+
+            <label className="mt-4 block">
+              <span className="text-sm font-medium">密码</span>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                className="mt-2 w-full rounded-lg border border-black/10 bg-cloud px-3 py-3 outline-none transition focus:border-jade"
+              />
+            </label>
+
+            {authMessage ? (
+              <p className="mt-4 text-sm font-semibold text-red-600">{authMessage}</p>
+            ) : null}
+
+            <button
+              type="submit"
+              className="mt-5 w-full rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-jade"
+            >
+              {authMode === "login" ? "登录" : "注册并登录"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode(authMode === "login" ? "register" : "login");
+                setAuthMessage("");
+              }}
+              className="mt-3 w-full text-sm font-semibold text-jade"
+            >
+              {authMode === "login" ? "没有账号？去注册" : "已有账号？去登录"}
+            </button>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }
