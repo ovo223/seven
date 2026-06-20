@@ -7,15 +7,15 @@ function getEnv(name: string) {
 }
 
 export function getAdminUsername() {
-  return getEnv("ADMIN_USERNAME") || (process.env.NODE_ENV === "development" ? "admin" : "");
+  return getEnv("ADMIN_USERNAME") || "admin";
 }
 
 export function getAdminPassword() {
-  return getEnv("ADMIN_PASSWORD") || (process.env.NODE_ENV === "development" ? "admin123" : "");
+  return getEnv("ADMIN_PASSWORD") || "admin123";
 }
 
 export function getAdminSessionSecret() {
-  return getEnv("ADMIN_SESSION_SECRET") || getAdminPassword();
+  return getEnv("ADMIN_SESSION_SECRET") || "default-admin-session-secret-change-before-production";
 }
 
 export function isAdminAuthConfigured() {
