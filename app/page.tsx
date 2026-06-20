@@ -110,6 +110,11 @@ export default function HomePage() {
     setAuthMessage("");
   }
 
+  function logout() {
+    updateState({ isLoggedIn: false });
+    setStatus("已退出登录。");
+  }
+
   function updateState(patch: Partial<PlatformState>) {
     const nextState = { ...state, ...patch };
     setState(nextState);
@@ -410,22 +415,32 @@ export default function HomePage() {
               用户 ¥{state.userBalance.toFixed(2)} · AI ¥{state.aiBalance.toFixed(2)}
             </div>
           ) : null}
-          <div className="flex shrink-0 items-center gap-1.5 xl:gap-2">
+          {state.isLoggedIn ? (
             <button
               type="button"
-              onClick={() => openAuth("login")}
-              className="h-8 min-w-[52px] whitespace-nowrap rounded-full border border-black/10 bg-white px-3 text-xs font-semibold text-ink transition hover:bg-cloud xl:h-9 xl:min-w-[64px] xl:px-4 xl:text-sm"
+              onClick={logout}
+              className="h-8 min-w-[76px] whitespace-nowrap rounded-full bg-ink px-3 text-xs font-semibold text-white transition hover:bg-jade xl:h-9 xl:min-w-[92px] xl:px-4 xl:text-sm"
             >
-              登录
+              退出登录
             </button>
-            <button
-              type="button"
-              onClick={() => openAuth("register")}
-              className="h-8 min-w-[52px] whitespace-nowrap rounded-full bg-ink px-3 text-xs font-semibold text-white transition hover:bg-jade xl:h-9 xl:min-w-[64px] xl:px-4 xl:text-sm"
-            >
-              注册
-            </button>
-          </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-1.5 xl:gap-2">
+              <button
+                type="button"
+                onClick={() => openAuth("login")}
+                className="h-8 min-w-[52px] whitespace-nowrap rounded-full border border-black/10 bg-white px-3 text-xs font-semibold text-ink transition hover:bg-cloud xl:h-9 xl:min-w-[64px] xl:px-4 xl:text-sm"
+              >
+                登录
+              </button>
+              <button
+                type="button"
+                onClick={() => openAuth("register")}
+                className="h-8 min-w-[52px] whitespace-nowrap rounded-full bg-ink px-3 text-xs font-semibold text-white transition hover:bg-jade xl:h-9 xl:min-w-[64px] xl:px-4 xl:text-sm"
+              >
+                注册
+              </button>
+            </div>
+          )}
         </div>
 
         <section className="mt-3 xl:mt-8">
