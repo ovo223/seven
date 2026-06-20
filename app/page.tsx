@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { SendHorizontal, WalletCards } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
+  createWalletOrder,
   defaultPlatformState,
   platformStateEvent,
   readPlatformState,
@@ -74,6 +75,41 @@ export default function HomePage() {
     const nextState = { ...state, ...patch };
     setState(nextState);
     writePlatformState(nextState);
+
+    return nextState;
+  }
+
+  async function recordOrder({
+    type,
+    amount,
+    nextState,
+    note,
+  }: {
+    type: "recharge" | "withdraw" | "fund_ai" | "return_ai";
+    amount: number;
+    nextState: PlatformState;
+    note: string;
+  }) {
+    const order = {
+      type,
+      status: "success",
+      amount,
+      userBalanceAfter: nextState.userBalance,
+      aiBalanceAfter: nextState.aiBalance,
+      note,
+    } as const;
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(order),
+      });
+
+      if (!response.ok) throw new Error("Order request failed");
+    } catch {
+      createWalletOrder(order);
+    }
   }
 
   async function callWalletApi(action: "recharge" | "withdraw", amount: number) {
@@ -100,9 +136,17 @@ export default function HomePage() {
     setStatus("正在发起充值...");
 
     try {
-      const result = await callWalletApi("recharge", amount);
-      updateState({ userBalance: Number((state.userBalance + amount).toFixed(2)) });
-      setStatus(`${result.message ?? "用户钱包已充值。"} 金额 ¥${amount.toFixed(2)}。`);
+      await callWalletApi("recharge", amount);
+      const nextState = updateState({
+        userBalance: Number((state.userBalance + amount).toFixed(2)),
+      });
+      await recordOrder({
+        type: "recharge",
+        amount,
+        nextState,
+        note: "用户钱包充值",
+      });
+      setStatus(`用户钱包已充值 ¥${amount.toFixed(2)}。`);
     } catch {
       setStatus("充值接口暂不可用，请稍后再试。");
     } finally {
@@ -127,9 +171,17 @@ export default function HomePage() {
     setStatus("正在发起提现...");
 
     try {
-      const result = await callWalletApi("withdraw", amount);
-      updateState({ userBalance: Number((state.userBalance - amount).toFixed(2)) });
-      setStatus(`${result.message ?? "用户钱包已提现。"} 金额 ¥${amount.toFixed(2)}。`);
+      await callWalletApi("withdraw", amount);
+      const nextState = updateState({
+        userBalance: Number((state.userBalance - amount).toFixed(2)),
+      });
+      await recordOrder({
+        type: "withdraw",
+        amount,
+        nextState,
+        note: "用户钱包提现",
+      });
+      setStatus(`用户钱包已提现 ¥${amount.toFixed(2)}。`);
     } catch {
       setStatus("提现接口暂不可用，请稍后再试。");
     } finally {
@@ -150,9 +202,15 @@ export default function HomePage() {
       return;
     }
 
-    updateState({
+    const nextState = updateState({
       userBalance: Number((state.userBalance - amount).toFixed(2)),
       aiBalance: Number((state.aiBalance + amount).toFixed(2)),
+    });
+    void recordOrder({
+      type: "fund_ai",
+      amount,
+      nextState,
+      note: `从用户钱包拨款给 ${state.aiName}`,
     });
     setStatus(`已从用户钱包给 ${state.aiName} 拨款 ¥${amount.toFixed(2)}。`);
   }
@@ -170,11 +228,17 @@ export default function HomePage() {
       return;
     }
 
-    updateState({
+    const nextState = updateState({
       aiBalance: Number((state.aiBalance - amount).toFixed(2)),
       userBalance: Number((state.userBalance + amount).toFixed(2)),
     });
-    setStatus(`已从 ${state.aiName} 钱包取回 ¥${amount.toFixed(2)} 到用户钱包。`);
+    void recordOrder({
+      type: "return_ai",
+      amount,
+      nextState,
+      note: `从 ${state.aiName} 钱包取回到用户钱包`,
+    });
+    setStatus(`已从 ${state.aiName} 钱包取回 ¥${amount.toFixed(2)}。`);
   }
 
   async function sendMessage() {

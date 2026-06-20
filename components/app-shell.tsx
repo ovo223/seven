@@ -18,12 +18,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
               <span className="text-base font-semibold">AI 员工后台</span>
             </Link>
-            <Link
-              href="/"
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-ink"
-            >
-              查看前台
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-ink"
+              >
+                查看前台
+              </Link>
+              <a
+                href="/api/admin/logout"
+                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mint"
+              >
+                退出登录
+              </a>
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</main>

@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+mingit
+mingit.zip
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+README.md
+UPLOAD_TO_GITHUB.md

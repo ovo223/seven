@@ -36,3 +36,5 @@ Thumbs.db
 mingit
 mingit.zip
 .tools
+.pnpm-store
+data

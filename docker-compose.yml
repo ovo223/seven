@@ -1,0 +1,18 @@
+services:
+  ai-employee-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-employee-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      NODE_ENV: production
+      AI_PROVIDER: mock
+      PAYMENT_PROVIDER: mock
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET}
