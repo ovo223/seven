@@ -35,6 +35,7 @@ export default function HomePage() {
 
   useEffect(() => {
     setState(readPlatformState());
+    void loadServerState();
 
     function syncState(event?: Event) {
       const customEvent = event as CustomEvent<PlatformState>;
@@ -55,6 +56,20 @@ export default function HomePage() {
       window.removeEventListener("storage", syncStorage);
     };
   }, []);
+
+  async function loadServerState() {
+    try {
+      const response = await fetch("/api/platform-state", { cache: "no-store" });
+      const data = (await response.json()) as { state?: PlatformState };
+
+      if (!response.ok || !data.state) return;
+
+      setState(data.state);
+      writePlatformState(data.state);
+    } catch {
+      setState(readPlatformState());
+    }
+  }
 
   useEffect(() => {
     setMessages((current) => {

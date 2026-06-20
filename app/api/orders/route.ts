@@ -9,10 +9,21 @@ import {
 } from "@/lib/order-store";
 import type { WalletOrderStatus, WalletOrderType } from "@/lib/platform-state";
 
+const walletOrderTypes: WalletOrderType[] = ["recharge", "withdraw", "fund_ai", "return_ai"];
+const walletOrderStatuses: WalletOrderStatus[] = ["pending", "success", "failed"];
+
 async function requireAdmin() {
   const token = cookies().get(adminCookieName)?.value;
 
   return verifyAdminToken(token);
+}
+
+function isWalletOrderType(value: unknown): value is WalletOrderType {
+  return walletOrderTypes.includes(value as WalletOrderType);
+}
+
+function isWalletOrderStatus(value: unknown): value is WalletOrderStatus {
+  return walletOrderStatuses.includes(value as WalletOrderStatus);
 }
 
 export async function GET() {
@@ -33,8 +44,12 @@ export async function POST(request: Request) {
     note?: string;
   };
 
-  if (!body.type || !Number.isFinite(body.amount) || Number(body.amount) <= 0) {
+  if (!isWalletOrderType(body.type) || !Number.isFinite(body.amount) || Number(body.amount) <= 0) {
     return NextResponse.json({ message: "Invalid order payload" }, { status: 400 });
+  }
+
+  if (body.status && !isWalletOrderStatus(body.status)) {
+    return NextResponse.json({ message: "Invalid order status" }, { status: 400 });
   }
 
   const order = await createServerOrder({
@@ -59,7 +74,7 @@ export async function PATCH(request: Request) {
     status?: WalletOrderStatus;
   };
 
-  if (!body.id || !body.status) {
+  if (!body.id || !isWalletOrderStatus(body.status)) {
     return NextResponse.json({ message: "Invalid update payload" }, { status: 400 });
   }
 

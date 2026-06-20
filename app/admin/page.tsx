@@ -31,6 +31,7 @@ export default function AdminPage() {
   useEffect(() => {
     setState(readPlatformState());
     setOrders(readWalletOrders());
+    void loadServerState();
     void loadServerOrders();
 
     function syncOrders(event?: Event) {
@@ -38,7 +39,7 @@ export default function AdminPage() {
       setOrders(customEvent?.detail ?? readWalletOrders());
     }
 
-  function syncStorage(event: StorageEvent) {
+    function syncStorage(event: StorageEvent) {
       if (event.key === "ai-employee-wallet-orders") {
         setOrders(readWalletOrders());
       }
@@ -74,6 +75,20 @@ export default function AdminPage() {
     setSavedText("");
   }
 
+  async function loadServerState() {
+    try {
+      const response = await fetch("/api/platform-state", { cache: "no-store" });
+      const data = (await response.json()) as { state?: PlatformState };
+
+      if (!response.ok || !data.state) return;
+
+      setState(data.state);
+      writePlatformState(data.state);
+    } catch {
+      setState(readPlatformState());
+    }
+  }
+
   async function loadServerOrders() {
     try {
       const response = await fetch("/api/orders", { cache: "no-store" });
@@ -84,15 +99,43 @@ export default function AdminPage() {
     }
   }
 
-  function save() {
+  async function save() {
     writePlatformState(state);
-    setSavedText("已保存，前台已同步。");
+
+    try {
+      const response = await fetch("/api/platform-state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state }),
+      });
+      const data = (await response.json()) as { state?: PlatformState };
+
+      if (!response.ok || !data.state) throw new Error("State save failed");
+
+      setState(data.state);
+      writePlatformState(data.state);
+      setSavedText("已保存到服务器，前台已同步。");
+    } catch {
+      setSavedText("已保存到当前浏览器，服务器同步失败。");
+    }
   }
 
-  function reset() {
+  async function reset() {
     resetPlatformState();
     setState(defaultPlatformState);
-    setSavedText("已恢复默认配置。");
+
+    try {
+      const response = await fetch("/api/platform-state", { method: "DELETE" });
+      const data = (await response.json()) as { state?: PlatformState };
+
+      if (!response.ok || !data.state) throw new Error("State reset failed");
+
+      setState(data.state);
+      writePlatformState(data.state);
+      setSavedText("已恢复默认配置并同步到服务器。");
+    } catch {
+      setSavedText("已恢复当前浏览器默认配置，服务器同步失败。");
+    }
   }
 
   async function changeOrderStatus(orderId: string, status: WalletOrderStatus) {

@@ -41,6 +41,27 @@ export const defaultPlatformState: PlatformState = {
   totalIncome: 0,
 };
 
+export function normalizePlatformState(value: Partial<PlatformState> = {}): PlatformState {
+  return {
+    ...defaultPlatformState,
+    ...value,
+    brandName: typeof value.brandName === "string" ? value.brandName : defaultPlatformState.brandName,
+    aiName: typeof value.aiName === "string" ? value.aiName : defaultPlatformState.aiName,
+    aiInitial: typeof value.aiInitial === "string" ? value.aiInitial : defaultPlatformState.aiInitial,
+    aiIntro: typeof value.aiIntro === "string" ? value.aiIntro : defaultPlatformState.aiIntro,
+    isLoggedIn:
+      typeof value.isLoggedIn === "boolean" ? value.isLoggedIn : defaultPlatformState.isLoggedIn,
+    userBalance: toNumber(value.userBalance, defaultPlatformState.userBalance),
+    aiBalance: toNumber(value.aiBalance, defaultPlatformState.aiBalance),
+    dailyIncome: toNumber(value.dailyIncome, defaultPlatformState.dailyIncome),
+    totalIncome: toNumber(value.totalIncome, defaultPlatformState.totalIncome),
+  };
+}
+
+function toNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 export function readPlatformState(): PlatformState {
   if (typeof window === "undefined") return defaultPlatformState;
 
@@ -48,10 +69,7 @@ export function readPlatformState(): PlatformState {
   if (!raw) return defaultPlatformState;
 
   try {
-    return {
-      ...defaultPlatformState,
-      ...(JSON.parse(raw) as Partial<PlatformState>),
-    };
+    return normalizePlatformState(JSON.parse(raw) as Partial<PlatformState>);
   } catch {
     return defaultPlatformState;
   }
