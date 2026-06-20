@@ -97,7 +97,7 @@ export default function HomePage() {
     });
   }, [state.aiName]);
 
-  const canSend = input.trim().length > 0 && !isReplying;
+  const canSend = state.isLoggedIn && input.trim().length > 0 && !isReplying;
 
   function openAuth(mode: AuthMode) {
     setAuthMode(mode);
@@ -331,6 +331,12 @@ export default function HomePage() {
   }
 
   async function sendMessage() {
+    if (!state.isLoggedIn) {
+      setStatus("请先登录或注册后再开始聊天。");
+      openAuth("login");
+      return;
+    }
+
     const text = input.trim();
 
     if (!text) return;
@@ -559,6 +565,27 @@ export default function HomePage() {
         </div>
 
         <footer className="shrink-0 border-t border-black/5 p-3 xl:p-4">
+          {!state.isLoggedIn ? (
+            <div className="mb-3 flex flex-col gap-2 rounded-lg bg-mint p-3 text-sm text-jade sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-semibold">登录或注册后才能和 {state.aiName} 聊天。</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => openAuth("login")}
+                  className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-ink"
+                >
+                  登录
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAuth("register")}
+                  className="rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  注册
+                </button>
+              </div>
+            </div>
+          ) : null}
           <div className="grid grid-cols-[minmax(0,1fr)_64px] items-stretch gap-2 xl:grid-cols-[minmax(0,1fr)_72px] xl:gap-3">
             <textarea
               value={input}
@@ -569,9 +596,10 @@ export default function HomePage() {
                   sendMessage();
                 }
               }}
-              placeholder="输入你想让 AI 员工做什么..."
+              placeholder={state.isLoggedIn ? "输入你想让 AI 员工做什么..." : "请先登录或注册后开始聊天"}
               rows={1}
-              className="h-14 min-w-0 resize-none rounded-lg border border-black/10 bg-white px-4 py-4 text-sm leading-6 outline-none transition focus:border-jade xl:h-[64px] xl:py-5"
+              disabled={!state.isLoggedIn}
+              className="h-14 min-w-0 resize-none rounded-lg border border-black/10 bg-white px-4 py-4 text-sm leading-6 outline-none transition focus:border-jade disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-ink/40 xl:h-[64px] xl:py-5"
             />
             <button
               type="button"
