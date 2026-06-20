@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
+  const isAdminLogin = pathname === "/admin/login";
 
   if (isAdmin) {
     return (
@@ -25,12 +26,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 查看前台
               </Link>
-              <a
-                href="/api/admin/logout"
-                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mint"
-              >
-                退出登录
-              </a>
+              {!isAdminLogin ? (
+                <a
+                  href="/api/admin/logout"
+                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mint"
+                >
+                  退出登录
+                </a>
+              ) : null}
             </div>
           </div>
         </header>
