@@ -3,7 +3,6 @@
 import { SendHorizontal, WalletCards } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
-  createWalletOrder,
   defaultPlatformState,
   platformStateEvent,
   readPlatformState,
@@ -293,8 +292,9 @@ export default function HomePage() {
       });
 
       if (!response.ok) throw new Error("Order request failed");
+      return;
     } catch {
-      createWalletOrder(order);
+      throw new Error("Order request failed");
     }
   }
 

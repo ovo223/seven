@@ -1,28 +1,61 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { WalletOrder, WalletOrderStatus } from "@/lib/platform-state";
 
-const dataDir = path.join(process.cwd(), "data");
-const ordersFile = path.join(dataDir, "wallet-orders.json");
+type OrderStoreGlobal = typeof globalThis & {
+  __aiEmployeeWalletOrders?: WalletOrder[];
+};
 
-async function ensureDataDir() {
-  await mkdir(dataDir, { recursive: true });
+const globalStore = globalThis as OrderStoreGlobal;
+const projectDataDir = path.join(process.cwd(), "data");
+const tmpDataDir = path.join(os.tmpdir(), "ai-employee-platform");
+const projectOrdersFile = path.join(projectDataDir, "wallet-orders.json");
+const tmpOrdersFile = path.join(tmpDataDir, "wallet-orders.json");
+
+async function readOrdersFile(filePath: string) {
+  const raw = await readFile(filePath, "utf8");
+  const orders = JSON.parse(raw) as WalletOrder[];
+
+  return Array.isArray(orders) ? orders : [];
+}
+
+async function writeOrdersFile(filePath: string, orders: WalletOrder[]) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, JSON.stringify(orders, null, 2), "utf8");
 }
 
 export async function readServerOrders(): Promise<WalletOrder[]> {
-  try {
-    const raw = await readFile(ordersFile, "utf8");
-    const orders = JSON.parse(raw) as WalletOrder[];
+  if (globalStore.__aiEmployeeWalletOrders) {
+    return globalStore.__aiEmployeeWalletOrders;
+  }
 
-    return Array.isArray(orders) ? orders : [];
+  try {
+    const orders = await readOrdersFile(projectOrdersFile);
+    globalStore.__aiEmployeeWalletOrders = orders;
+
+    return orders;
   } catch {
-    return [];
+    try {
+      const orders = await readOrdersFile(tmpOrdersFile);
+      globalStore.__aiEmployeeWalletOrders = orders;
+
+      return orders;
+    } catch {
+      globalStore.__aiEmployeeWalletOrders = [];
+
+      return [];
+    }
   }
 }
 
 export async function writeServerOrders(orders: WalletOrder[]) {
-  await ensureDataDir();
-  await writeFile(ordersFile, JSON.stringify(orders, null, 2), "utf8");
+  globalStore.__aiEmployeeWalletOrders = orders;
+
+  await Promise.any([
+    writeOrdersFile(projectOrdersFile, orders),
+    writeOrdersFile(tmpOrdersFile, orders),
+  ]).catch(() => undefined);
 }
 
 export async function createServerOrder(order: Omit<WalletOrder, "id" | "createdAt">) {
