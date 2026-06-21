@@ -158,7 +158,13 @@ export default function HomePage() {
 
     if (authMode === "register") {
       window.localStorage.setItem(frontendAccountKey, JSON.stringify({ email, password }));
-      updateState({ isLoggedIn: true });
+      updateState({
+        isLoggedIn: true,
+        userBalance: 0,
+        aiBalance: 0,
+        dailyIncome: 0,
+        totalIncome: 0,
+      });
       setStatus(`已注册并登录：${email}`);
       closeAuth();
       return;

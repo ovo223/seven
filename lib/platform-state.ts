@@ -35,8 +35,8 @@ export const defaultPlatformState: PlatformState = {
   aiInitial: "M",
   aiIntro: "您的 AI 数字员工，负责接收任务和回复消息，以及帮您创造收益。",
   isLoggedIn: false,
-  userBalance: 100,
-  aiBalance: 10,
+  userBalance: 0,
+  aiBalance: 0,
   dailyIncome: 0,
   totalIncome: 0,
 };
