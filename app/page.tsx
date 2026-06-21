@@ -8,7 +8,11 @@ import {
   platformStateEvent,
   readPlatformState,
   type PlatformState,
+  type WalletOrder,
+  type WalletOrderStatus,
+  type WalletOrderType,
   writePlatformState,
+  writeWalletOrders,
 } from "@/lib/platform-state";
 
 type Message = {
@@ -25,6 +29,7 @@ type FrontendAccount = {
 };
 
 const frontendAccountKey = "ai-employee-frontend-account";
+const appliedOrdersKey = "ai-employee-applied-orders";
 const frontendAuthVersion = "frontend-auth-ui-v2";
 
 export default function HomePage() {
@@ -51,6 +56,56 @@ export default function HomePage() {
     setState(readPlatformState());
     void loadServerState();
 
+    async function syncCompletedOrders() {
+      try {
+        const response = await fetch("/api/orders", { cache: "no-store" });
+        const data = (await response.json()) as { orders?: WalletOrder[] };
+        const orders = data.orders ?? [];
+
+        writeWalletOrders(orders);
+
+        const appliedIds = readAppliedOrderIds();
+        const account = readFrontendAccount();
+        const completedWalletOrders = orders.filter(
+          (order) =>
+            account?.email &&
+            order.userEmail === account.email &&
+            order.status === "success" &&
+            (order.type === "recharge" || order.type === "withdraw") &&
+            !appliedIds.has(order.id),
+        );
+
+        if (!completedWalletOrders.length) return;
+
+        const currentState = readPlatformState();
+        const nextState = completedWalletOrders.reduce((draft, order) => {
+          const nextBalance =
+            order.type === "recharge"
+              ? draft.userBalance + order.amount
+              : draft.userBalance - order.amount;
+
+          appliedIds.add(order.id);
+
+          return {
+            ...draft,
+            userBalance: Number(Math.max(0, nextBalance).toFixed(2)),
+          };
+        }, currentState);
+
+        setState(nextState);
+        writePlatformState(nextState);
+        writeAppliedOrderIds(appliedIds);
+      } catch {
+        return;
+      }
+    }
+
+    void syncCompletedOrders();
+
+    const orderSyncTimer = window.setInterval(() => {
+      void syncCompletedOrders();
+    }, 5000);
+
     function syncState(event?: Event) {
       const customEvent = event as CustomEvent<PlatformState>;
       setState(customEvent?.detail ?? readPlatformState());
@@ -68,6 +123,7 @@ export default function HomePage() {
     return () => {
       window.removeEventListener(platformStateEvent, syncState);
       window.removeEventListener("storage", syncStorage);
+      window.clearInterval(orderSyncTimer);
     };
   }, []);
 
@@ -143,6 +199,21 @@ export default function HomePage() {
     }
   }
 
+  function readAppliedOrderIds() {
+    try {
+      const raw = window.localStorage.getItem(appliedOrdersKey);
+      const ids = raw ? (JSON.parse(raw) as string[]) : [];
+
+      return Array.isArray(ids) ? new Set(ids) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  }
+
+  function writeAppliedOrderIds(ids: Set<string>) {
+    window.localStorage.setItem(appliedOrdersKey, JSON.stringify([...ids]));
+  }
+
   function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -193,21 +264,25 @@ export default function HomePage() {
   async function recordOrder({
     type,
     amount,
+    status,
     nextState,
     note,
   }: {
-    type: "recharge" | "withdraw" | "fund_ai" | "return_ai";
+    type: WalletOrderType;
     amount: number;
+    status: WalletOrderStatus;
     nextState: PlatformState;
     note: string;
   }) {
+    const account = readFrontendAccount();
     const order = {
       type,
-      status: "success",
+      status,
       amount,
       userBalanceAfter: nextState.userBalance,
       aiBalanceAfter: nextState.aiBalance,
       note,
+      userEmail: account?.email,
     } as const;
 
     try {
@@ -223,18 +298,6 @@ export default function HomePage() {
     }
   }
 
-  async function callWalletApi(action: "recharge" | "withdraw", amount: number) {
-    const response = await fetch("/api/wallet", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, amount }),
-    });
-
-    if (!response.ok) throw new Error("Wallet request failed");
-
-    return (await response.json()) as { message?: string };
-  }
-
   async function rechargeUserWallet() {
     const amount = Number(userWalletAmount);
 
@@ -244,22 +307,19 @@ export default function HomePage() {
     }
 
     setIsWalletBusy(true);
-    setStatus("正在发起充值...");
+    setStatus("正在提交充值订单...");
 
     try {
-      await callWalletApi("recharge", amount);
-      const nextState = updateState({
-        userBalance: Number((state.userBalance + amount).toFixed(2)),
-      });
       await recordOrder({
         type: "recharge",
         amount,
-        nextState,
+        status: "pending",
+        nextState: state,
         note: "用户钱包充值",
       });
-      setStatus(`用户钱包已充值 ¥${amount.toFixed(2)}。`);
+      setStatus(`充值订单已提交，等待后台审核：¥${amount.toFixed(2)}。`);
     } catch {
-      setStatus("充值接口暂不可用，请稍后再试。");
+      setStatus("充值订单提交失败，请稍后再试。");
     } finally {
       setIsWalletBusy(false);
     }
@@ -279,22 +339,19 @@ export default function HomePage() {
     }
 
     setIsWalletBusy(true);
-    setStatus("正在发起提现...");
+    setStatus("正在提交提现订单...");
 
     try {
-      await callWalletApi("withdraw", amount);
-      const nextState = updateState({
-        userBalance: Number((state.userBalance - amount).toFixed(2)),
-      });
       await recordOrder({
         type: "withdraw",
         amount,
-        nextState,
+        status: "pending",
+        nextState: state,
         note: "用户钱包提现",
       });
-      setStatus(`用户钱包已提现 ¥${amount.toFixed(2)}。`);
+      setStatus(`提现订单已提交，等待后台审核：¥${amount.toFixed(2)}。`);
     } catch {
-      setStatus("提现接口暂不可用，请稍后再试。");
+      setStatus("提现订单提交失败，请稍后再试。");
     } finally {
       setIsWalletBusy(false);
     }
@@ -320,6 +377,7 @@ export default function HomePage() {
     void recordOrder({
       type: "fund_ai",
       amount,
+      status: "success",
       nextState,
       note: `从用户钱包拨款给 ${state.aiName}`,
     });
@@ -346,6 +404,7 @@ export default function HomePage() {
     void recordOrder({
       type: "return_ai",
       amount,
+      status: "success",
       nextState,
       note: `从 ${state.aiName} 钱包取回到用户钱包`,
     });

@@ -304,6 +304,7 @@ export default function AdminPage() {
                 <thead>
                   <tr className="border-b border-black/10 text-ink/55">
                     <th className="py-3 pr-4 font-medium">订单号</th>
+                    <th className="py-3 pr-4 font-medium">用户</th>
                     <th className="py-3 pr-4 font-medium">类型</th>
                     <th className="py-3 pr-4 font-medium">金额</th>
                     <th className="py-3 pr-4 font-medium">状态</th>
@@ -318,6 +319,7 @@ export default function AdminPage() {
                     filteredOrders.map((order) => (
                       <tr key={order.id} className="border-b border-black/5">
                         <td className="py-3 pr-4 font-mono text-xs">{order.id}</td>
+                        <td className="py-3 pr-4">{order.userEmail ?? "-"}</td>
                         <td className="py-3 pr-4">{getWalletOrderTypeLabel(order.type)}</td>
                         <td className="py-3 pr-4 font-semibold">¥{order.amount.toFixed(2)}</td>
                         <td className="py-3 pr-4">
@@ -348,7 +350,7 @@ export default function AdminPage() {
                     ))
                   ) : (
                     <tr>
-                      <td className="py-8 text-center text-ink/50" colSpan={8}>
+                      <td className="py-8 text-center text-ink/50" colSpan={9}>
                         暂无订单记录
                       </td>
                     </tr>

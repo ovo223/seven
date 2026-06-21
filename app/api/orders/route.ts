@@ -27,10 +27,6 @@ function isWalletOrderStatus(value: unknown): value is WalletOrderStatus {
 }
 
 export async function GET() {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
   return NextResponse.json({ orders: await readServerOrders() });
 }
 
@@ -42,6 +38,7 @@ export async function POST(request: Request) {
     userBalanceAfter?: number;
     aiBalanceAfter?: number;
     note?: string;
+    userEmail?: string;
   };
 
   if (!isWalletOrderType(body.type) || !Number.isFinite(body.amount) || Number(body.amount) <= 0) {
@@ -59,6 +56,7 @@ export async function POST(request: Request) {
     userBalanceAfter: Number(body.userBalanceAfter ?? 0),
     aiBalanceAfter: Number(body.aiBalanceAfter ?? 0),
     note: body.note ?? "",
+    userEmail: body.userEmail,
   });
 
   return NextResponse.json({ order });

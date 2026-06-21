@@ -21,6 +21,7 @@ export type WalletOrder = {
   userBalanceAfter: number;
   aiBalanceAfter: number;
   note: string;
+  userEmail?: string;
   createdAt: string;
 };
 
