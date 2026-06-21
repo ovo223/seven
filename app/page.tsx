@@ -78,8 +78,18 @@ export default function HomePage() {
 
       if (!response.ok || !data.state) return;
 
-      setState(data.state);
-      writePlatformState(data.state);
+      const localState = readPlatformState();
+      const nextState = {
+        ...data.state,
+        isLoggedIn: localState.isLoggedIn,
+        userBalance: localState.userBalance,
+        aiBalance: localState.aiBalance,
+        dailyIncome: localState.dailyIncome,
+        totalIncome: localState.totalIncome,
+      };
+
+      setState(nextState);
+      writePlatformState(nextState);
     } catch {
       setState(readPlatformState());
     }
