@@ -25,6 +25,7 @@ type FrontendAccount = {
 };
 
 const frontendAccountKey = "ai-employee-frontend-account";
+const frontendAuthVersion = "frontend-auth-ui-v2";
 
 export default function HomePage() {
   const [state, setState] = useState<PlatformState>(defaultPlatformState);
@@ -399,7 +400,10 @@ export default function HomePage() {
   }
 
   return (
-    <div className="grid min-h-0 overflow-hidden rounded-lg border border-black/5 bg-white shadow-soft xl:h-[calc(100dvh-8rem)] xl:grid-cols-[320px_1fr]">
+    <div
+      data-auth-ui-version={frontendAuthVersion}
+      className="grid min-h-0 overflow-hidden rounded-lg border border-black/5 bg-white shadow-soft xl:h-[calc(100dvh-8rem)] xl:grid-cols-[320px_1fr]"
+    >
       <aside className="border-b border-black/5 p-3 xl:min-h-0 xl:overflow-y-auto xl:border-b-0 xl:border-r xl:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2 xl:flex-nowrap xl:gap-4">
           <div className="flex min-w-0 items-center gap-2 font-semibold xl:gap-3">
