@@ -66,7 +66,10 @@ export default function AdminPage() {
       withdrawAmount: sumOrders(orders, "withdraw"),
       fundAmount: sumOrders(orders, "fund_ai"),
       returnAmount: sumOrders(orders, "return_ai"),
-      pendingCount: orders.filter((order) => order.status === "pending").length,
+      pendingCount: orders.filter(
+        (order) =>
+          order.status === "pending" && (order.type === "recharge" || order.type === "withdraw"),
+      ).length,
     };
   }, [orders]);
 
@@ -329,22 +332,30 @@ export default function AdminPage() {
                         <td className="py-3 pr-4">¥{order.aiBalanceAfter.toFixed(2)}</td>
                         <td className="py-3 pr-4">{formatTime(order.createdAt)}</td>
                         <td className="py-3 pr-4">
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => changeOrderStatus(order.id, "success")}
-                              className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-jade"
-                            >
-                              完成
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => changeOrderStatus(order.id, "failed")}
-                              className="rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
-                            >
-                              拒绝
-                            </button>
-                          </div>
+                          {needsReview(order) ? (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => changeOrderStatus(order.id, "success")}
+                                className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-jade"
+                              >
+                                完成
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => changeOrderStatus(order.id, "failed")}
+                                className="rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
+                              >
+                                拒绝
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs font-semibold text-ink/45">
+                              {order.type === "fund_ai" || order.type === "return_ai"
+                                ? "无需审核"
+                                : "已处理"}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -399,6 +410,12 @@ function sumOrders(orders: WalletOrder[], type: WalletOrderType) {
   return orders
     .filter((order) => order.type === type && order.status === "success")
     .reduce((sum, order) => sum + order.amount, 0);
+}
+
+function needsReview(order: WalletOrder) {
+  return (
+    order.status === "pending" && (order.type === "recharge" || order.type === "withdraw")
+  );
 }
 
 function formatTime(value: string) {
