@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { RotateCcw, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -213,28 +212,6 @@ export default function AdminPage() {
           <p className="mt-2 text-sm leading-6 text-ink/60">
             管理前台展示、钱包余额，并查看充值、提现、拨款和取回订单。
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setView("orders")}
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-jade"
-          >
-            钱包订单
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("users")}
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-jade"
-          >
-            用户查询
-          </button>
-          <Link
-            href="/"
-            className="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold transition hover:bg-cloud"
-          >
-            返回前台
-          </Link>
         </div>
       </div>
 
