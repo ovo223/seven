@@ -21,6 +21,7 @@ import {
 } from "@/lib/platform-state";
 
 type OrderFilter = "all" | WalletOrderType;
+type AdminView = "dashboard" | "users";
 
 type UserSummary = {
   email: string;
@@ -38,6 +39,7 @@ type UserSummary = {
 export default function AdminPage() {
   const [state, setState] = useState<PlatformState>(defaultPlatformState);
   const [orders, setOrders] = useState<WalletOrder[]>([]);
+  const [view, setView] = useState<AdminView>("dashboard");
   const [filter, setFilter] = useState<OrderFilter>("all");
   const [userQuery, setUserQuery] = useState("");
   const [savedText, setSavedText] = useState("");
@@ -69,15 +71,19 @@ export default function AdminPage() {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    const query = userQuery.trim().toLowerCase();
-    const typedOrders = filter === "all" ? orders : orders.filter((order) => order.type === filter);
+    if (filter === "all") return orders;
 
-    if (!query) return typedOrders;
-
-    return typedOrders.filter((order) => order.userEmail?.toLowerCase().includes(query));
-  }, [filter, orders, userQuery]);
+    return orders.filter((order) => order.type === filter);
+  }, [filter, orders]);
 
   const userSummaries = useMemo(() => buildUserSummaries(orders, userQuery), [orders, userQuery]);
+  const filteredUserOrders = useMemo(() => {
+    const query = userQuery.trim().toLowerCase();
+
+    if (!query) return orders;
+
+    return orders.filter((order) => order.userEmail?.toLowerCase().includes(query));
+  }, [orders, userQuery]);
 
   const orderSummary = useMemo(() => {
     return {
@@ -208,14 +214,46 @@ export default function AdminPage() {
             管理前台展示、钱包余额，并查看充值、提现、拨款和取回订单。
           </p>
         </div>
-        <Link
-          href="/"
-          className="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold transition hover:bg-cloud"
-        >
-          返回前台
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setView("users")}
+            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-jade"
+          >
+            用户查询
+          </button>
+          <Link
+            href="/"
+            className="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold transition hover:bg-cloud"
+          >
+            返回前台
+          </Link>
+        </div>
       </div>
 
+      <div className="mb-5 flex flex-wrap gap-2 rounded-lg bg-white p-2 shadow-soft">
+        <button
+          type="button"
+          onClick={() => setView("dashboard")}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            view === "dashboard" ? "bg-ink text-white" : "text-ink hover:bg-cloud"
+          }`}
+        >
+          后台首页
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("users")}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            view === "users" ? "bg-ink text-white" : "text-ink hover:bg-cloud"
+          }`}
+        >
+          用户查询
+        </button>
+      </div>
+
+      {view === "dashboard" ? (
+        <>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="充值总额" value={`¥${orderSummary.rechargeAmount.toFixed(2)}`} />
         <MetricCard label="提现总额" value={`¥${orderSummary.withdrawAmount.toFixed(2)}`} />
@@ -289,66 +327,6 @@ export default function AdminPage() {
                 value={state.totalIncome}
                 onChange={(value) => updateField("totalIncome", value)}
               />
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">用户查询</h2>
-                <p className="mt-1 text-sm text-ink/55">
-                  按邮箱查询用户，并查看该用户的钱包汇总和订单记录。
-                </p>
-              </div>
-              <input
-                value={userQuery}
-                onChange={(event) => setUserQuery(event.target.value)}
-                placeholder="输入用户邮箱"
-                className="w-full rounded-lg border border-black/10 bg-cloud px-3 py-2 text-sm outline-none focus:border-jade sm:w-72"
-              />
-            </div>
-
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-black/10 text-ink/55">
-                    <th className="py-3 pr-4 font-medium">用户邮箱</th>
-                    <th className="py-3 pr-4 font-medium">订单数</th>
-                    <th className="py-3 pr-4 font-medium">待处理</th>
-                    <th className="py-3 pr-4 font-medium">充值</th>
-                    <th className="py-3 pr-4 font-medium">提现</th>
-                    <th className="py-3 pr-4 font-medium">拨款</th>
-                    <th className="py-3 pr-4 font-medium">取回</th>
-                    <th className="py-3 pr-4 font-medium">用户余额</th>
-                    <th className="py-3 pr-4 font-medium">AI 余额</th>
-                    <th className="py-3 pr-4 font-medium">最近订单</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {userSummaries.length ? (
-                    userSummaries.map((user) => (
-                      <tr key={user.email} className="border-b border-black/5">
-                        <td className="py-3 pr-4 font-semibold">{user.email}</td>
-                        <td className="py-3 pr-4">{user.orderCount}</td>
-                        <td className="py-3 pr-4">{user.pendingCount}</td>
-                        <td className="py-3 pr-4">¥{user.rechargeAmount.toFixed(2)}</td>
-                        <td className="py-3 pr-4">¥{user.withdrawAmount.toFixed(2)}</td>
-                        <td className="py-3 pr-4">¥{user.fundAmount.toFixed(2)}</td>
-                        <td className="py-3 pr-4">¥{user.returnAmount.toFixed(2)}</td>
-                        <td className="py-3 pr-4 font-semibold">¥{user.userBalance.toFixed(2)}</td>
-                        <td className="py-3 pr-4 font-semibold">¥{user.aiBalance.toFixed(2)}</td>
-                        <td className="py-3 pr-4">{formatTime(user.latestOrderAt)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="py-8 text-center text-ink/50" colSpan={10}>
-                        暂无匹配用户
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
             </div>
           </div>
 
@@ -491,8 +469,124 @@ export default function AdminPage() {
           {savedText ? <p className="text-center text-sm font-semibold text-jade">{savedText}</p> : null}
         </aside>
       </div>
+        </>
+      ) : (
+        <div className="space-y-5">
+          <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">用户列表</h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  输入邮箱可快速筛选用户，下面订单明细也会同步筛选。
+                </p>
+              </div>
+              <input
+                value={userQuery}
+                onChange={(event) => setUserQuery(event.target.value)}
+                placeholder="输入用户邮箱"
+                className="w-full rounded-lg border border-black/10 bg-cloud px-3 py-2 text-sm outline-none focus:border-jade sm:w-72"
+              />
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-black/10 text-ink/55">
+                    <th className="py-3 pr-4 font-medium">用户邮箱</th>
+                    <th className="py-3 pr-4 font-medium">订单数</th>
+                    <th className="py-3 pr-4 font-medium">待处理</th>
+                    <th className="py-3 pr-4 font-medium">充值</th>
+                    <th className="py-3 pr-4 font-medium">提现</th>
+                    <th className="py-3 pr-4 font-medium">拨款</th>
+                    <th className="py-3 pr-4 font-medium">取回</th>
+                    <th className="py-3 pr-4 font-medium">用户余额</th>
+                    <th className="py-3 pr-4 font-medium">AI 余额</th>
+                    <th className="py-3 pr-4 font-medium">最近订单</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userSummaries.length ? (
+                    userSummaries.map((user) => (
+                      <tr key={user.email} className="border-b border-black/5">
+                        <td className="py-3 pr-4 font-semibold">{user.email}</td>
+                        <td className="py-3 pr-4">{user.orderCount}</td>
+                        <td className="py-3 pr-4">{user.pendingCount}</td>
+                        <td className="py-3 pr-4">¥{user.rechargeAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4">¥{user.withdrawAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4">¥{user.fundAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4">¥{user.returnAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4 font-semibold">¥{user.userBalance.toFixed(2)}</td>
+                        <td className="py-3 pr-4 font-semibold">¥{user.aiBalance.toFixed(2)}</td>
+                        <td className="py-3 pr-4">{formatTime(user.latestOrderAt)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="py-8 text-center text-ink/50" colSpan={10}>
+                        暂无匹配用户
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <div>
+              <h2 className="text-lg font-semibold">用户订单明细</h2>
+              <p className="mt-1 text-sm text-ink/55">查看当前筛选用户的全部钱包记录。</p>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-black/10 text-ink/55">
+                    <th className="py-3 pr-4 font-medium">订单号</th>
+                    <th className="py-3 pr-4 font-medium">用户</th>
+                    <th className="py-3 pr-4 font-medium">类型</th>
+                    <th className="py-3 pr-4 font-medium">金额</th>
+                    <th className="py-3 pr-4 font-medium">状态</th>
+                    <th className="py-3 pr-4 font-medium">用户余额</th>
+                    <th className="py-3 pr-4 font-medium">AI 余额</th>
+                    <th className="py-3 pr-4 font-medium">时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUserOrders.length ? (
+                    filteredUserOrders.map((order) => (
+                      <tr key={order.id} className="border-b border-black/5">
+                        <td className="py-3 pr-4 font-mono text-xs">{order.id}</td>
+                        <td className="py-3 pr-4">{order.userEmail ?? "-"}</td>
+                        <td className="py-3 pr-4">{getWalletOrderTypeLabel(order.type)}</td>
+                        <td className="py-3 pr-4 font-semibold">¥{order.amount.toFixed(2)}</td>
+                        <td className="py-3 pr-4">{getWalletOrderStatusLabel(order.status)}</td>
+                        <td className="py-3 pr-4">¥{order.userBalanceAfter.toFixed(2)}</td>
+                        <td className="py-3 pr-4">¥{order.aiBalanceAfter.toFixed(2)}</td>
+                        <td className="py-3 pr-4">{formatTime(order.createdAt)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="py-8 text-center text-ink/50" colSpan={8}>
+                        暂无订单记录
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
+}
+
+function sumOrders(orders: WalletOrder[], type: WalletOrderType) {
+  return orders
+    .filter((order) => order.type === type && order.status === "success")
+    .reduce((sum, order) => sum + order.amount, 0);
 }
 
 function buildUserSummaries(orders: WalletOrder[], query: string) {
@@ -541,12 +635,6 @@ function buildUserSummaries(orders: WalletOrder[], query: string) {
     (left, right) =>
       new Date(right.latestOrderAt).getTime() - new Date(left.latestOrderAt).getTime(),
   );
-}
-
-function sumOrders(orders: WalletOrder[], type: WalletOrderType) {
-  return orders
-    .filter((order) => order.type === type && order.status === "success")
-    .reduce((sum, order) => sum + order.amount, 0);
 }
 
 function successAmount(order: WalletOrder, type: WalletOrderType) {
