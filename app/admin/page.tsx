@@ -22,10 +22,24 @@ import {
 
 type OrderFilter = "all" | WalletOrderType;
 
+type UserSummary = {
+  email: string;
+  orderCount: number;
+  rechargeAmount: number;
+  withdrawAmount: number;
+  fundAmount: number;
+  returnAmount: number;
+  pendingCount: number;
+  userBalance: number;
+  aiBalance: number;
+  latestOrderAt: string;
+};
+
 export default function AdminPage() {
   const [state, setState] = useState<PlatformState>(defaultPlatformState);
   const [orders, setOrders] = useState<WalletOrder[]>([]);
   const [filter, setFilter] = useState<OrderFilter>("all");
+  const [userQuery, setUserQuery] = useState("");
   const [savedText, setSavedText] = useState("");
 
   useEffect(() => {
@@ -55,10 +69,15 @@ export default function AdminPage() {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    if (filter === "all") return orders;
+    const query = userQuery.trim().toLowerCase();
+    const typedOrders = filter === "all" ? orders : orders.filter((order) => order.type === filter);
 
-    return orders.filter((order) => order.type === filter);
-  }, [filter, orders]);
+    if (!query) return typedOrders;
+
+    return typedOrders.filter((order) => order.userEmail?.toLowerCase().includes(query));
+  }, [filter, orders, userQuery]);
+
+  const userSummaries = useMemo(() => buildUserSummaries(orders, userQuery), [orders, userQuery]);
 
   const orderSummary = useMemo(() => {
     return {
@@ -274,6 +293,66 @@ export default function AdminPage() {
           </div>
 
           <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">用户查询</h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  按邮箱查询用户，并查看该用户的钱包汇总和订单记录。
+                </p>
+              </div>
+              <input
+                value={userQuery}
+                onChange={(event) => setUserQuery(event.target.value)}
+                placeholder="输入用户邮箱"
+                className="w-full rounded-lg border border-black/10 bg-cloud px-3 py-2 text-sm outline-none focus:border-jade sm:w-72"
+              />
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-black/10 text-ink/55">
+                    <th className="py-3 pr-4 font-medium">用户邮箱</th>
+                    <th className="py-3 pr-4 font-medium">订单数</th>
+                    <th className="py-3 pr-4 font-medium">待处理</th>
+                    <th className="py-3 pr-4 font-medium">充值</th>
+                    <th className="py-3 pr-4 font-medium">提现</th>
+                    <th className="py-3 pr-4 font-medium">拨款</th>
+                    <th className="py-3 pr-4 font-medium">取回</th>
+                    <th className="py-3 pr-4 font-medium">用户余额</th>
+                    <th className="py-3 pr-4 font-medium">AI 余额</th>
+                    <th className="py-3 pr-4 font-medium">最近订单</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userSummaries.length ? (
+                    userSummaries.map((user) => (
+                      <tr key={user.email} className="border-b border-black/5">
+                        <td className="py-3 pr-4 font-semibold">{user.email}</td>
+                        <td className="py-3 pr-4">{user.orderCount}</td>
+                        <td className="py-3 pr-4">{user.pendingCount}</td>
+                        <td className="py-3 pr-4">¥{user.rechargeAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4">¥{user.withdrawAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4">¥{user.fundAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4">¥{user.returnAmount.toFixed(2)}</td>
+                        <td className="py-3 pr-4 font-semibold">¥{user.userBalance.toFixed(2)}</td>
+                        <td className="py-3 pr-4 font-semibold">¥{user.aiBalance.toFixed(2)}</td>
+                        <td className="py-3 pr-4">{formatTime(user.latestOrderAt)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="py-8 text-center text-ink/50" colSpan={10}>
+                        暂无匹配用户
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold">钱包订单</h2>
@@ -416,10 +495,62 @@ export default function AdminPage() {
   );
 }
 
+function buildUserSummaries(orders: WalletOrder[], query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const summaries = new Map<string, UserSummary>();
+
+  orders.forEach((order) => {
+    if (!order.userEmail) return;
+
+    const email = order.userEmail.toLowerCase();
+    if (normalizedQuery && !email.includes(normalizedQuery)) return;
+
+    const current = summaries.get(email) ?? {
+      email: order.userEmail,
+      orderCount: 0,
+      rechargeAmount: 0,
+      withdrawAmount: 0,
+      fundAmount: 0,
+      returnAmount: 0,
+      pendingCount: 0,
+      userBalance: order.userBalanceAfter,
+      aiBalance: order.aiBalanceAfter,
+      latestOrderAt: order.createdAt,
+    };
+
+    const next: UserSummary = {
+      ...current,
+      orderCount: current.orderCount + 1,
+      pendingCount: current.pendingCount + (order.status === "pending" ? 1 : 0),
+      rechargeAmount: current.rechargeAmount + successAmount(order, "recharge"),
+      withdrawAmount: current.withdrawAmount + successAmount(order, "withdraw"),
+      fundAmount: current.fundAmount + successAmount(order, "fund_ai"),
+      returnAmount: current.returnAmount + successAmount(order, "return_ai"),
+    };
+
+    if (new Date(order.createdAt).getTime() >= new Date(current.latestOrderAt).getTime()) {
+      next.userBalance = order.userBalanceAfter;
+      next.aiBalance = order.aiBalanceAfter;
+      next.latestOrderAt = order.createdAt;
+    }
+
+    summaries.set(email, next);
+  });
+
+  return [...summaries.values()].sort(
+    (left, right) =>
+      new Date(right.latestOrderAt).getTime() - new Date(left.latestOrderAt).getTime(),
+  );
+}
+
 function sumOrders(orders: WalletOrder[], type: WalletOrderType) {
   return orders
     .filter((order) => order.type === type && order.status === "success")
     .reduce((sum, order) => sum + order.amount, 0);
+}
+
+function successAmount(order: WalletOrder, type: WalletOrderType) {
+  return order.type === type && order.status === "success" ? order.amount : 0;
 }
 
 function needsReview(order: WalletOrder) {
