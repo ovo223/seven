@@ -21,7 +21,7 @@ import {
 } from "@/lib/platform-state";
 
 type OrderFilter = "all" | WalletOrderType;
-type AdminView = "dashboard" | "users";
+type AdminView = "dashboard" | "users" | "orders";
 
 type UserSummary = {
   email: string;
@@ -217,6 +217,13 @@ export default function AdminPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            onClick={() => setView("orders")}
+            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-jade"
+          >
+            钱包订单
+          </button>
+          <button
+            type="button"
             onClick={() => setView("users")}
             className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-jade"
           >
@@ -249,6 +256,15 @@ export default function AdminPage() {
           }`}
         >
           用户查询
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("orders")}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            view === "orders" ? "bg-ink text-white" : "text-ink hover:bg-cloud"
+          }`}
+        >
+          钱包订单
         </button>
       </div>
 
@@ -330,113 +346,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">钱包订单</h2>
-                <p className="mt-1 text-sm text-ink/55">查看充值、提现、拨款和取回记录。</p>
-              </div>
-              <button
-                type="button"
-                onClick={clearOrders}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold transition hover:bg-cloud"
-              >
-                <Trash2 className="h-4 w-4" />
-                清空记录
-              </button>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[
-                ["all", "全部"],
-                ["recharge", "充值"],
-                ["withdraw", "提现"],
-                ["fund_ai", "拨款"],
-                ["return_ai", "取回"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setFilter(value as OrderFilter)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    filter === value
-                      ? "bg-ink text-white"
-                      : "border border-black/10 bg-white text-ink hover:bg-cloud"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-black/10 text-ink/55">
-                    <th className="py-3 pr-4 font-medium">订单号</th>
-                    <th className="py-3 pr-4 font-medium">用户</th>
-                    <th className="py-3 pr-4 font-medium">类型</th>
-                    <th className="py-3 pr-4 font-medium">金额</th>
-                    <th className="py-3 pr-4 font-medium">状态</th>
-                    <th className="py-3 pr-4 font-medium">用户余额</th>
-                    <th className="py-3 pr-4 font-medium">AI 余额</th>
-                    <th className="py-3 pr-4 font-medium">时间</th>
-                    <th className="py-3 pr-4 font-medium">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.length ? (
-                    filteredOrders.map((order) => (
-                      <tr key={order.id} className="border-b border-black/5">
-                        <td className="py-3 pr-4 font-mono text-xs">{order.id}</td>
-                        <td className="py-3 pr-4">{order.userEmail ?? "-"}</td>
-                        <td className="py-3 pr-4">{getWalletOrderTypeLabel(order.type)}</td>
-                        <td className="py-3 pr-4 font-semibold">¥{order.amount.toFixed(2)}</td>
-                        <td className="py-3 pr-4">
-                          <StatusBadge status={order.status} />
-                        </td>
-                        <td className="py-3 pr-4">¥{order.userBalanceAfter.toFixed(2)}</td>
-                        <td className="py-3 pr-4">¥{order.aiBalanceAfter.toFixed(2)}</td>
-                        <td className="py-3 pr-4">{formatTime(order.createdAt)}</td>
-                        <td className="py-3 pr-4">
-                          {needsReview(order) ? (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => changeOrderStatus(order.id, "success")}
-                                className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-jade"
-                              >
-                                完成
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => changeOrderStatus(order.id, "failed")}
-                                className="rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
-                              >
-                                拒绝
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-ink/45">
-                              {order.type === "fund_ai" || order.type === "return_ai"
-                                ? "无需审核"
-                                : "已处理"}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="py-8 text-center text-ink/50" colSpan={9}>
-                        暂无订单记录
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </section>
 
         <aside className="space-y-5">
@@ -470,6 +379,114 @@ export default function AdminPage() {
         </aside>
       </div>
         </>
+      ) : view === "orders" ? (
+        <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">钱包订单</h2>
+              <p className="mt-1 text-sm text-ink/55">查看充值、提现、拨款和取回记录。</p>
+            </div>
+            <button
+              type="button"
+              onClick={clearOrders}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold transition hover:bg-cloud"
+            >
+              <Trash2 className="h-4 w-4" />
+              清空记录
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[
+              ["all", "全部"],
+              ["recharge", "充值"],
+              ["withdraw", "提现"],
+              ["fund_ai", "拨款"],
+              ["return_ai", "取回"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFilter(value as OrderFilter)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  filter === value
+                    ? "bg-ink text-white"
+                    : "border border-black/10 bg-white text-ink hover:bg-cloud"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-black/10 text-ink/55">
+                  <th className="py-3 pr-4 font-medium">订单号</th>
+                  <th className="py-3 pr-4 font-medium">用户</th>
+                  <th className="py-3 pr-4 font-medium">类型</th>
+                  <th className="py-3 pr-4 font-medium">金额</th>
+                  <th className="py-3 pr-4 font-medium">状态</th>
+                  <th className="py-3 pr-4 font-medium">用户余额</th>
+                  <th className="py-3 pr-4 font-medium">AI 余额</th>
+                  <th className="py-3 pr-4 font-medium">时间</th>
+                  <th className="py-3 pr-4 font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.length ? (
+                  filteredOrders.map((order) => (
+                    <tr key={order.id} className="border-b border-black/5">
+                      <td className="py-3 pr-4 font-mono text-xs">{order.id}</td>
+                      <td className="py-3 pr-4">{order.userEmail ?? "-"}</td>
+                      <td className="py-3 pr-4">{getWalletOrderTypeLabel(order.type)}</td>
+                      <td className="py-3 pr-4 font-semibold">¥{order.amount.toFixed(2)}</td>
+                      <td className="py-3 pr-4">
+                        <StatusBadge status={order.status} />
+                      </td>
+                      <td className="py-3 pr-4">¥{order.userBalanceAfter.toFixed(2)}</td>
+                      <td className="py-3 pr-4">¥{order.aiBalanceAfter.toFixed(2)}</td>
+                      <td className="py-3 pr-4">{formatTime(order.createdAt)}</td>
+                      <td className="py-3 pr-4">
+                        {needsReview(order) ? (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => changeOrderStatus(order.id, "success")}
+                              className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-jade"
+                            >
+                              完成
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => changeOrderStatus(order.id, "failed")}
+                              className="rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
+                            >
+                              拒绝
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-semibold text-ink/45">
+                            {order.type === "fund_ai" || order.type === "return_ai"
+                              ? "无需审核"
+                              : "已处理"}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="py-8 text-center text-ink/50" colSpan={9}>
+                      暂无订单记录
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : (
         <div className="space-y-5">
           <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
