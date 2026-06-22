@@ -6,10 +6,12 @@ import {
   defaultPlatformState,
   platformStateEvent,
   readPlatformState,
+  readWalletOrders,
   type PlatformState,
   type WalletOrder,
   type WalletOrderStatus,
   type WalletOrderType,
+  walletOrdersKey,
   writePlatformState,
   writeWalletOrders,
 } from "@/lib/platform-state";
@@ -55,6 +57,40 @@ export default function HomePage() {
     setState(readPlatformState());
     void loadServerState();
 
+    function applyCompletedOrders(orders: WalletOrder[]) {
+      const appliedIds = readAppliedOrderIds();
+      const account = readFrontendAccount();
+      const completedWalletOrders = orders.filter(
+        (order) =>
+          account?.email &&
+          order.userEmail === account.email &&
+          order.status === "success" &&
+          (order.type === "recharge" || order.type === "withdraw") &&
+          !appliedIds.has(order.id),
+      );
+
+      if (!completedWalletOrders.length) return;
+
+      const currentState = readPlatformState();
+      const nextState = completedWalletOrders.reduce((draft, order) => {
+        const nextBalance =
+          order.type === "recharge"
+            ? draft.userBalance + order.amount
+            : draft.userBalance - order.amount;
+
+        appliedIds.add(order.id);
+
+        return {
+          ...draft,
+          userBalance: Number(Math.max(0, nextBalance).toFixed(2)),
+        };
+      }, currentState);
+
+      setState(nextState);
+      writePlatformState(nextState);
+      writeAppliedOrderIds(appliedIds);
+    }
+
     async function syncCompletedOrders() {
       try {
         const response = await fetch("/api/orders", { cache: "no-store" });
@@ -62,40 +98,9 @@ export default function HomePage() {
         const orders = data.orders ?? [];
 
         writeWalletOrders(orders);
-
-        const appliedIds = readAppliedOrderIds();
-        const account = readFrontendAccount();
-        const completedWalletOrders = orders.filter(
-          (order) =>
-            account?.email &&
-            order.userEmail === account.email &&
-            order.status === "success" &&
-            (order.type === "recharge" || order.type === "withdraw") &&
-            !appliedIds.has(order.id),
-        );
-
-        if (!completedWalletOrders.length) return;
-
-        const currentState = readPlatformState();
-        const nextState = completedWalletOrders.reduce((draft, order) => {
-          const nextBalance =
-            order.type === "recharge"
-              ? draft.userBalance + order.amount
-              : draft.userBalance - order.amount;
-
-          appliedIds.add(order.id);
-
-          return {
-            ...draft,
-            userBalance: Number(Math.max(0, nextBalance).toFixed(2)),
-          };
-        }, currentState);
-
-        setState(nextState);
-        writePlatformState(nextState);
-        writeAppliedOrderIds(appliedIds);
+        applyCompletedOrders(orders);
       } catch {
-        return;
+        applyCompletedOrders(readWalletOrders());
       }
     }
 
@@ -113,6 +118,10 @@ export default function HomePage() {
     function syncStorage(event: StorageEvent) {
       if (event.key === "ai-employee-platform-state") {
         setState(readPlatformState());
+      }
+
+      if (event.key === walletOrdersKey) {
+        applyCompletedOrders(readWalletOrders());
       }
     }
 

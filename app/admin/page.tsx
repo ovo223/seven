@@ -15,9 +15,9 @@ import {
   type WalletOrder,
   type WalletOrderStatus,
   type WalletOrderType,
-  updateWalletOrderStatus,
   walletOrdersEvent,
   writePlatformState,
+  writeWalletOrders,
 } from "@/lib/platform-state";
 
 type OrderFilter = "all" | WalletOrderType;
@@ -96,7 +96,10 @@ export default function AdminPage() {
     try {
       const response = await fetch("/api/orders", { cache: "no-store" });
       const data = (await response.json()) as { orders?: WalletOrder[] };
-      setOrders(data.orders ?? []);
+      const nextOrders = data.orders ?? [];
+
+      setOrders(nextOrders);
+      writeWalletOrders(nextOrders);
     } catch {
       setOrders(readWalletOrders());
     }
@@ -142,7 +145,15 @@ export default function AdminPage() {
   }
 
   async function changeOrderStatus(orderId: string, status: WalletOrderStatus) {
-    updateWalletOrderStatus(orderId, status);
+    setOrders((current) => {
+      const source = current.length ? current : readWalletOrders();
+      const nextOrders = source.map((order) =>
+        order.id === orderId ? { ...order, status } : order,
+      );
+
+      writeWalletOrders(nextOrders);
+      return nextOrders;
+    });
 
     try {
       const response = await fetch("/api/orders", {
@@ -152,7 +163,6 @@ export default function AdminPage() {
       });
 
       if (!response.ok) throw new Error("Order update failed");
-      await loadServerOrders();
     } catch {
       setOrders(readWalletOrders());
     }
