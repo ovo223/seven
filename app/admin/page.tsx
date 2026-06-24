@@ -75,6 +75,7 @@ export default function AdminPage() {
     return orders.filter((order) => order.type === filter);
   }, [filter, orders]);
 
+  const allUserSummaries = useMemo(() => buildUserSummaries(orders, ""), [orders]);
   const userSummaries = useMemo(() => buildUserSummaries(orders, userQuery), [orders, userQuery]);
   const filteredUserOrders = useMemo(() => {
     const query = userQuery.trim().toLowerCase();
@@ -83,6 +84,17 @@ export default function AdminPage() {
 
     return orders.filter((order) => order.userEmail?.toLowerCase().includes(query));
   }, [orders, userQuery]);
+
+  const platformSummary = useMemo(() => {
+    return allUserSummaries.reduce(
+      (summary, user) => ({
+        onlineUsers: summary.onlineUsers + 1,
+        userBalance: summary.userBalance + user.userBalance,
+        aiBalance: summary.aiBalance + user.aiBalance,
+      }),
+      { onlineUsers: 0, userBalance: 0, aiBalance: 0 },
+    );
+  }, [allUserSummaries]);
 
   const orderSummary = useMemo(() => {
     return {
@@ -329,9 +341,9 @@ export default function AdminPage() {
           <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
             <h2 className="text-lg font-semibold">预览摘要</h2>
             <div className="mt-4 space-y-3 text-sm">
-              <SummaryRow label="登录状态" value={state.isLoggedIn ? "已登录" : "未登录"} />
-              <SummaryRow label="用户钱包" value={`¥${state.userBalance.toFixed(2)}`} />
-              <SummaryRow label="AI 钱包" value={`¥${state.aiBalance.toFixed(2)}`} />
+              <SummaryRow label="在线人数" value={`${platformSummary.onlineUsers}`} />
+              <SummaryRow label="用户钱包" value={`¥${platformSummary.userBalance.toFixed(2)}`} />
+              <SummaryRow label="AI 钱包" value={`¥${platformSummary.aiBalance.toFixed(2)}`} />
               <SummaryRow label="总收益" value={`¥${state.totalIncome.toFixed(2)}`} />
             </div>
           </div>
