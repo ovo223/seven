@@ -64,7 +64,7 @@ const defaultIntegrationConfig: IntegrationConfig = {
     systemPrompt: "",
   },
   recharge: {
-    enabled: false,
+    enabled: true,
     provider: "manual",
     apiUrl: "",
     merchantId: "",
