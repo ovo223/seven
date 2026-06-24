@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loginUser, registerUser } from "@/lib/user-store";
+import { loginUser, readUsers, registerUser } from "@/lib/user-store";
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -7,14 +7,14 @@ function isValidEmail(email: string) {
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
-    action?: "login" | "register";
+    action?: "login" | "register" | "sync";
     email?: string;
     password?: string;
   };
   const email = body.email?.trim().toLowerCase() ?? "";
   const password = body.password?.trim() ?? "";
 
-  if (body.action !== "login" && body.action !== "register") {
+  if (body.action !== "login" && body.action !== "register" && body.action !== "sync") {
     return NextResponse.json({ message: "不支持的用户操作。" }, { status: 400 });
   }
 
@@ -27,6 +27,21 @@ export async function POST(request: Request) {
 
     if (!created) {
       return NextResponse.json({ message: "该邮箱已注册，请直接登录。" }, { status: 409 });
+    }
+
+    return NextResponse.json({ user: publicUser(user) });
+  }
+
+  if (body.action === "sync") {
+    const users = await readUsers();
+    const user = users.find((item) => item.email === email);
+
+    if (!user || user.password !== password) {
+      return NextResponse.json({ message: "账号信息已变更，请重新登录。" }, { status: 401 });
+    }
+
+    if (user.status === "frozen") {
+      return NextResponse.json({ message: "账号已被冻结，请联系管理员。" }, { status: 403 });
     }
 
     return NextResponse.json({ user: publicUser(user) });

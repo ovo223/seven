@@ -115,10 +115,14 @@ export default function HomePage() {
     }
 
     void syncCompletedOrders();
+    void checkFrontendAccountStatus();
 
     const orderSyncTimer = window.setInterval(() => {
       void syncCompletedOrders();
     }, 5000);
+    const accountSyncTimer = window.setInterval(() => {
+      void checkFrontendAccountStatus();
+    }, 3000);
 
     function syncState(event?: Event) {
       const customEvent = event as CustomEvent<PlatformState>;
@@ -142,6 +146,7 @@ export default function HomePage() {
       window.removeEventListener(platformStateEvent, syncState);
       window.removeEventListener("storage", syncStorage);
       window.clearInterval(orderSyncTimer);
+      window.clearInterval(accountSyncTimer);
     };
   }, []);
 
@@ -166,6 +171,40 @@ export default function HomePage() {
       writePlatformState(nextState);
     } catch {
       setState(readPlatformState());
+    }
+  }
+
+  async function checkFrontendAccountStatus() {
+    const localState = readPlatformState();
+    const account = readFrontendAccount();
+
+    if (!localState.isLoggedIn) return;
+
+    if (!account) {
+      forceLogout("登录信息已失效，请重新登录。");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sync",
+          email: account.email,
+          password: account.password,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as AuthResponse;
+
+      if (response.ok) return;
+
+      if (response.status === 403 || response.status === 401) {
+        window.localStorage.removeItem(frontendAccountKey);
+        forceLogout(data.message ?? "账号状态已变更，请重新登录。");
+      }
+    } catch {
+      // Keep the current session when the network is temporarily unavailable.
     }
   }
 
@@ -198,6 +237,13 @@ export default function HomePage() {
   function logout() {
     updateState({ isLoggedIn: false });
     setStatus("已退出登录。");
+  }
+
+  function forceLogout(message: string) {
+    const nextState = { ...readPlatformState(), isLoggedIn: false };
+    setState(nextState);
+    writePlatformState(nextState);
+    setStatus(message);
   }
 
   function updateState(patch: Partial<PlatformState>) {
