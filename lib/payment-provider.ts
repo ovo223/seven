@@ -17,7 +17,7 @@ export type WalletResult = {
 const paymentProvider = process.env.PAYMENT_PROVIDER ?? "mock";
 
 export async function handleWalletRequest(request: WalletRequest): Promise<WalletResult> {
-  const configuredResult = await handleConfiguredRecharge(request);
+  const configuredResult = await handleConfiguredWallet(request);
   if (configuredResult) return configuredResult;
 
   switch (paymentProvider) {
@@ -37,31 +37,33 @@ export async function handleWalletRequest(request: WalletRequest): Promise<Walle
   }
 }
 
-async function handleConfiguredRecharge(request: WalletRequest): Promise<WalletResult | null> {
-  const { recharge } = await readIntegrationConfig();
+async function handleConfiguredWallet(request: WalletRequest): Promise<WalletResult | null> {
+  const { recharge, withdraw } = await readIntegrationConfig();
+  const config = request.action === "recharge" ? recharge : withdraw;
+  const actionLabel = request.action === "recharge" ? "充值" : "提现";
 
-  if (!recharge.enabled || request.action !== "recharge") return null;
+  if (!config.enabled) return null;
 
-  if (!recharge.apiUrl || recharge.provider === "manual") {
+  if (!config.apiUrl || config.provider === "manual") {
     return {
-      provider: recharge.provider,
+      provider: config.provider,
       status: "pending",
-      transactionId: `${recharge.provider}_${request.action}_${Date.now()}`,
-      message: recharge.instructions || "充值订单已提交，请等待后台处理。",
+      transactionId: `${config.provider}_${request.action}_${Date.now()}`,
+      message: config.instructions || `${actionLabel}订单已提交，请等待后台处理。`,
     };
   }
 
   try {
-    const response = await fetch(recharge.apiUrl, {
+    const response = await fetch(config.apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(recharge.apiKey ? { Authorization: `Bearer ${recharge.apiKey}` } : {}),
+        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
       },
       body: JSON.stringify({
         action: request.action,
         amount: request.amount,
-        merchantId: recharge.merchantId || undefined,
+        merchantId: config.merchantId || undefined,
       }),
     });
     const data = (await response.json().catch(() => ({}))) as {
@@ -71,17 +73,17 @@ async function handleConfiguredRecharge(request: WalletRequest): Promise<WalletR
     };
 
     return {
-      provider: recharge.provider,
+      provider: config.provider,
       status: data.status ?? "pending",
-      transactionId: data.transactionId ?? `${recharge.provider}_${request.action}_${Date.now()}`,
-      message: data.message ?? recharge.instructions ?? "充值接口已提交，请等待处理。",
+      transactionId: data.transactionId ?? `${config.provider}_${request.action}_${Date.now()}`,
+      message: data.message ?? config.instructions ?? `${actionLabel}接口已提交，请等待处理。`,
     };
   } catch {
     return {
-      provider: recharge.provider,
+      provider: config.provider,
       status: "failed",
-      transactionId: `${recharge.provider}_${request.action}_${Date.now()}`,
-      message: "充值接口调用失败，请检查后台充值方式接口配置。",
+      transactionId: `${config.provider}_${request.action}_${Date.now()}`,
+      message: `${actionLabel}接口调用失败，请检查后台${actionLabel}方式接口配置。`,
     };
   }
 }

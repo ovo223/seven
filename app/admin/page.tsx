@@ -39,6 +39,14 @@ type IntegrationConfig = {
     apiKey: string;
     instructions: string;
   };
+  withdraw: {
+    enabled: boolean;
+    provider: "manual" | "wechat_pay" | "alipay" | "stripe" | "bank_transfer" | "custom";
+    apiUrl: string;
+    merchantId: string;
+    apiKey: string;
+    instructions: string;
+  };
 };
 
 type UserSummary = {
@@ -70,6 +78,14 @@ const defaultIntegrationConfig: IntegrationConfig = {
     merchantId: "",
     apiKey: "",
     instructions: "请提交充值订单，后台审核通过后到账。",
+  },
+  withdraw: {
+    enabled: true,
+    provider: "manual",
+    apiUrl: "",
+    merchantId: "",
+    apiKey: "",
+    instructions: "请提交提现订单，后台审核通过后处理。",
   },
 };
 
@@ -719,6 +735,98 @@ export default function AdminPage() {
                   setIntegrationConfig((current) => ({
                     ...current,
                     recharge: { ...current.recharge, instructions: event.target.value },
+                  }))
+                }
+                className="mt-2 w-full resize-none rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
+              />
+            </label>
+          </section>
+
+          <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">提现方式接口</h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  配置后，前台提现会先提交到这里的提现接口，再生成后台订单。
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  checked={integrationConfig.withdraw.enabled}
+                  onChange={(event) =>
+                    setIntegrationConfig((current) => ({
+                      ...current,
+                      withdraw: { ...current.withdraw, enabled: event.target.checked },
+                    }))
+                  }
+                />
+                启用
+              </label>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="提现方式"
+                value={integrationConfig.withdraw.provider}
+                options={[
+                  ["manual", "人工审核"],
+                  ["wechat_pay", "微信提现"],
+                  ["alipay", "支付宝提现"],
+                  ["stripe", "Stripe"],
+                  ["bank_transfer", "银行转账"],
+                  ["custom", "自定义"],
+                ]}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    withdraw: {
+                      ...current.withdraw,
+                      provider: value as IntegrationConfig["withdraw"]["provider"],
+                    },
+                  }))
+                }
+              />
+              <TextField
+                label="商户号"
+                value={integrationConfig.withdraw.merchantId}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    withdraw: { ...current.withdraw, merchantId: value },
+                  }))
+                }
+              />
+              <TextField
+                label="接口地址"
+                value={integrationConfig.withdraw.apiUrl}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    withdraw: { ...current.withdraw, apiUrl: value },
+                  }))
+                }
+              />
+              <TextField
+                label="接口密钥"
+                value={integrationConfig.withdraw.apiKey}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    withdraw: { ...current.withdraw, apiKey: value },
+                  }))
+                }
+              />
+            </div>
+            <label className="mt-4 block">
+              <span className="text-sm font-medium">提现说明</span>
+              <textarea
+                value={integrationConfig.withdraw.instructions}
+                rows={4}
+                onChange={(event) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    withdraw: { ...current.withdraw, instructions: event.target.value },
                   }))
                 }
                 className="mt-2 w-full resize-none rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
