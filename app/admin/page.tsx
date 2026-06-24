@@ -260,10 +260,10 @@ export default function AdminPage() {
       {view === "dashboard" ? (
         <>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="充值总额" value={`¥${orderSummary.rechargeAmount.toFixed(2)}`} />
-        <MetricCard label="提现总额" value={`¥${orderSummary.withdrawAmount.toFixed(2)}`} />
-        <MetricCard label="AI 拨款" value={`¥${orderSummary.fundAmount.toFixed(2)}`} />
-        <MetricCard label="AI 取回" value={`¥${orderSummary.returnAmount.toFixed(2)}`} />
+        <MetricCard label="全平台充值总额" value={`¥${orderSummary.rechargeAmount.toFixed(2)}`} />
+        <MetricCard label="全平台提现总额" value={`¥${orderSummary.withdrawAmount.toFixed(2)}`} />
+        <MetricCard label="全平台 AI 拨款" value={`¥${orderSummary.fundAmount.toFixed(2)}`} />
+        <MetricCard label="全平台 AI 取回" value={`¥${orderSummary.returnAmount.toFixed(2)}`} />
         <MetricCard label="待处理订单" value={`${orderSummary.pendingCount}`} />
       </section>
 
@@ -310,28 +310,12 @@ export default function AdminPage() {
           </div>
 
           <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
-            <h2 className="text-lg font-semibold">钱包与收益</h2>
+            <h2 className="text-lg font-semibold">全平台钱包与收益</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <NumberField
-                label="用户钱包余额"
-                value={state.userBalance}
-                onChange={(value) => updateField("userBalance", value)}
-              />
-              <NumberField
-                label="AI 员工钱包余额"
-                value={state.aiBalance}
-                onChange={(value) => updateField("aiBalance", value)}
-              />
-              <NumberField
-                label="当日收益"
-                value={state.dailyIncome}
-                onChange={(value) => updateField("dailyIncome", value)}
-              />
-              <NumberField
-                label="总收益"
-                value={state.totalIncome}
-                onChange={(value) => updateField("totalIncome", value)}
-              />
+              <ReadOnlyMetric label="用户钱包总额" value={`¥${platformSummary.userBalance.toFixed(2)}`} />
+              <ReadOnlyMetric label="AI 钱包总额" value={`¥${platformSummary.aiBalance.toFixed(2)}`} />
+              <ReadOnlyMetric label="当日收益" value={`¥${state.dailyIncome.toFixed(2)}`} />
+              <ReadOnlyMetric label="总收益" value={`¥${state.totalIncome.toFixed(2)}`} />
             </div>
           </div>
 
@@ -342,8 +326,8 @@ export default function AdminPage() {
             <h2 className="text-lg font-semibold">预览摘要</h2>
             <div className="mt-4 space-y-3 text-sm">
               <SummaryRow label="在线人数" value={`${platformSummary.onlineUsers}`} />
-              <SummaryRow label="用户钱包" value={`¥${platformSummary.userBalance.toFixed(2)}`} />
-              <SummaryRow label="AI 钱包" value={`¥${platformSummary.aiBalance.toFixed(2)}`} />
+              <SummaryRow label="用户钱包总额" value={`¥${platformSummary.userBalance.toFixed(2)}`} />
+              <SummaryRow label="AI 钱包总额" value={`¥${platformSummary.aiBalance.toFixed(2)}`} />
               <SummaryRow label="总收益" value={`¥${state.totalIncome.toFixed(2)}`} />
             </div>
           </div>
@@ -710,27 +694,12 @@ function TextField({
   );
 }
 
-function NumberField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-}) {
+function ReadOnlyMetric({ label, value }: { label: string; value: string }) {
   return (
-    <label className="block">
-      <span className="text-sm font-medium">{label}</span>
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="mt-2 w-full rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
-      />
-    </label>
+    <div className="rounded-lg bg-cloud px-3 py-3">
+      <div className="text-sm text-ink/55">{label}</div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
+    </div>
   );
 }
 
