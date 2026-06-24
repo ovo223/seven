@@ -39,8 +39,18 @@ type AuthResponse = {
   };
 };
 
+type SiteNotice = {
+  id: string;
+  type: "announcement" | "support";
+  title: string;
+  content: string;
+  targetEmail: string;
+  createdAt: string;
+};
+
 const frontendAccountKey = "ai-employee-frontend-account";
 const appliedOrdersKey = "ai-employee-applied-orders";
+const readMessageIdsKey = "ai-employee-read-message-ids";
 const frontendAuthVersion = "frontend-auth-ui-v2";
 
 export default function HomePage() {
@@ -55,6 +65,7 @@ export default function HomePage() {
   const [authMessage, setAuthMessage] = useState("");
   const [isReplying, setIsReplying] = useState(false);
   const [isWalletBusy, setIsWalletBusy] = useState(false);
+  const [siteNotices, setSiteNotices] = useState<SiteNotice[]>([]);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "hello",
@@ -116,6 +127,7 @@ export default function HomePage() {
 
     void syncCompletedOrders();
     void checkFrontendAccountStatus();
+    void syncSiteNotices();
 
     const orderSyncTimer = window.setInterval(() => {
       void syncCompletedOrders();
@@ -123,6 +135,9 @@ export default function HomePage() {
     const accountSyncTimer = window.setInterval(() => {
       void checkFrontendAccountStatus();
     }, 3000);
+    const noticeSyncTimer = window.setInterval(() => {
+      void syncSiteNotices();
+    }, 4000);
 
     function syncState(event?: Event) {
       const customEvent = event as CustomEvent<PlatformState>;
@@ -147,6 +162,7 @@ export default function HomePage() {
       window.removeEventListener("storage", syncStorage);
       window.clearInterval(orderSyncTimer);
       window.clearInterval(accountSyncTimer);
+      window.clearInterval(noticeSyncTimer);
     };
   }, []);
 
@@ -276,6 +292,52 @@ export default function HomePage() {
 
   function writeAppliedOrderIds(ids: Set<string>) {
     window.localStorage.setItem(appliedOrdersKey, JSON.stringify([...ids]));
+  }
+
+  function readMessageIds() {
+    try {
+      const raw = window.localStorage.getItem(readMessageIdsKey);
+      const ids = raw ? (JSON.parse(raw) as string[]) : [];
+
+      return Array.isArray(ids) ? new Set(ids) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  }
+
+  function writeMessageIds(ids: Set<string>) {
+    window.localStorage.setItem(readMessageIdsKey, JSON.stringify([...ids]));
+  }
+
+  async function syncSiteNotices() {
+    const localState = readPlatformState();
+    const account = readFrontendAccount();
+
+    if (!localState.isLoggedIn || !account?.email) {
+      setSiteNotices([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/messages?email=${encodeURIComponent(account.email)}`, {
+        cache: "no-store",
+      });
+      const data = (await response.json()) as { messages?: SiteNotice[] };
+
+      if (!response.ok || !data.messages) return;
+
+      const readIds = readMessageIds();
+      setSiteNotices(data.messages.filter((message) => !readIds.has(message.id)).slice(0, 3));
+    } catch {
+      // Notifications can wait until the next sync.
+    }
+  }
+
+  function dismissSiteNotice(id: string) {
+    const readIds = readMessageIds();
+    readIds.add(id);
+    writeMessageIds(readIds);
+    setSiteNotices((current) => current.filter((notice) => notice.id !== id));
   }
 
   async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
@@ -743,6 +805,32 @@ export default function HomePage() {
         </header>
 
         <div className="h-[42dvh] min-h-[320px] shrink-0 space-y-3 overflow-y-auto bg-cloud p-4 xl:h-auto xl:min-h-0 xl:shrink xl:flex-1 xl:space-y-4 xl:p-5">
+          {siteNotices.length ? (
+            <div className="space-y-2">
+              {siteNotices.map((notice) => (
+                <div key={notice.id} className="rounded-lg border border-jade/20 bg-mint p-4 text-jade">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-semibold">
+                        {notice.type === "announcement" ? "维护公告" : "客服消息"}
+                      </div>
+                      <h3 className="mt-1 font-semibold text-ink">{notice.title}</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => dismissSiteNotice(notice.id)}
+                      className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-ink transition hover:bg-cloud"
+                    >
+                      已读
+                    </button>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70">
+                    {notice.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
           {messages.map((message) => (
             <div
               key={message.id}

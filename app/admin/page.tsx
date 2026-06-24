@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Lock, RotateCcw, Save, Trash2, Unlock } from "lucide-react";
+import { KeyRound, Lock, MessageSquare, RotateCcw, Save, Trash2, Unlock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   clearWalletOrders,
@@ -20,7 +20,7 @@ import {
 } from "@/lib/platform-state";
 
 type OrderFilter = "all" | WalletOrderType;
-type AdminView = "dashboard" | "users" | "orders" | "integrations";
+type AdminView = "dashboard" | "users" | "orders" | "messages" | "integrations";
 
 type IntegrationConfig = {
   aiChat: {
@@ -71,6 +71,15 @@ type AdminUserProfile = {
   loginRecords: string[];
 };
 
+type SiteMessage = {
+  id: string;
+  type: "announcement" | "support";
+  title: string;
+  content: string;
+  targetEmail: string;
+  createdAt: string;
+};
+
 const defaultIntegrationConfig: IntegrationConfig = {
   aiChat: {
     enabled: false,
@@ -108,6 +117,12 @@ export default function AdminPage() {
   const [selectedUserEmail, setSelectedUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [userActionText, setUserActionText] = useState("");
+  const [messages, setMessages] = useState<SiteMessage[]>([]);
+  const [messageType, setMessageType] = useState<SiteMessage["type"]>("announcement");
+  const [messageTargetEmail, setMessageTargetEmail] = useState("");
+  const [messageTitle, setMessageTitle] = useState("");
+  const [messageContent, setMessageContent] = useState("");
+  const [messageActionText, setMessageActionText] = useState("");
   const [integrationConfig, setIntegrationConfig] =
     useState<IntegrationConfig>(defaultIntegrationConfig);
   const [savedText, setSavedText] = useState("");
@@ -118,6 +133,7 @@ export default function AdminPage() {
     void loadServerState();
     void loadServerOrders();
     void loadUsers();
+    void loadMessages();
     void loadIntegrations();
 
     function syncOrders(event?: Event) {
@@ -246,6 +262,60 @@ export default function AdminPage() {
       setUsers(data.users);
     } catch {
       setUsers([]);
+    }
+  }
+
+  async function loadMessages() {
+    try {
+      const response = await fetch("/api/admin/messages", { cache: "no-store" });
+      const data = (await response.json()) as { messages?: SiteMessage[] };
+
+      if (!response.ok || !data.messages) return;
+
+      setMessages(data.messages);
+    } catch {
+      setMessages([]);
+    }
+  }
+
+  async function sendMessage() {
+    try {
+      const response = await fetch("/api/admin/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: messageType,
+          title: messageTitle,
+          content: messageContent,
+          targetEmail: messageTargetEmail,
+        }),
+      });
+      const data = (await response.json()) as { message?: SiteMessage; error?: string };
+
+      if (!response.ok || !data.message) throw new Error("Message send failed");
+
+      setMessages((current) => [data.message as SiteMessage, ...current]);
+      setMessageTitle("");
+      setMessageContent("");
+      setMessageTargetEmail("");
+      setMessageActionText("消息已发送，前台登录用户会收到通知。");
+    } catch {
+      setMessageActionText("消息发送失败，请检查标题和内容。");
+    }
+  }
+
+  async function removeMessage(id: string) {
+    try {
+      const response = await fetch(`/api/admin/messages?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Message delete failed");
+
+      setMessages((current) => current.filter((message) => message.id !== id));
+      setMessageActionText("消息已删除。");
+    } catch {
+      setMessageActionText("消息删除失败，请稍后再试。");
     }
   }
 
@@ -403,6 +473,15 @@ export default function AdminPage() {
           }`}
         >
           钱包订单
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("messages")}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            view === "messages" ? "bg-ink text-white" : "text-ink hover:bg-cloud"
+          }`}
+        >
+          公告/客服
         </button>
         <button
           type="button"
@@ -618,6 +697,98 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+      ) : view === "messages" ? (
+        <div className="space-y-5">
+          <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">公告/客服</h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  发送维护公告或站内信，前台用户登录后会收到消息通知。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={sendMessage}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-jade"
+              >
+                <MessageSquare className="h-4 w-4" />
+                发送消息
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="消息类型"
+                value={messageType}
+                options={[
+                  ["announcement", "维护公告"],
+                  ["support", "客服站内信"],
+                ]}
+                onChange={(value) => setMessageType(value as SiteMessage["type"])}
+              />
+              <TextField
+                label="指定用户邮箱"
+                value={messageTargetEmail}
+                placeholder="留空则发送给全部登录用户"
+                onChange={setMessageTargetEmail}
+              />
+              <TextField label="标题" value={messageTitle} onChange={setMessageTitle} />
+              <label className="block sm:col-span-2">
+                <span className="text-sm font-medium">内容</span>
+                <textarea
+                  value={messageContent}
+                  rows={5}
+                  onChange={(event) => setMessageContent(event.target.value)}
+                  className="mt-2 w-full resize-none rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
+                />
+              </label>
+            </div>
+            {messageActionText ? (
+              <p className="mt-3 text-sm font-semibold text-jade">{messageActionText}</p>
+            ) : null}
+          </section>
+
+          <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <h2 className="text-lg font-semibold">消息记录</h2>
+            <div className="mt-4 space-y-3">
+              {messages.length ? (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className="flex flex-col gap-3 rounded-lg border border-black/5 bg-cloud p-4 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-mint px-2.5 py-1 text-xs font-semibold text-jade">
+                          {message.type === "announcement" ? "公告" : "站内信"}
+                        </span>
+                        <span className="text-xs text-ink/45">{formatTime(message.createdAt)}</span>
+                        <span className="text-xs text-ink/45">
+                          {message.targetEmail ? `发送给：${message.targetEmail}` : "发送给：全部用户"}
+                        </span>
+                      </div>
+                      <h3 className="mt-2 font-semibold">{message.title}</h3>
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-ink/65">
+                        {message.content}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeMessage(message.id)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold transition hover:bg-cloud"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      删除
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-lg bg-cloud p-8 text-center text-ink/50">暂无消息记录</div>
+              )}
+            </div>
+          </section>
+        </div>
       ) : view === "integrations" ? (
         <div className="space-y-5">
           <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
@@ -1252,11 +1423,13 @@ function TextField({
   label,
   value,
   maxLength,
+  placeholder,
   onChange,
 }: {
   label: string;
   value: string;
   maxLength?: number;
+  placeholder?: string;
   onChange: (value: string) => void;
 }) {
   return (
@@ -1265,6 +1438,7 @@ function TextField({
       <input
         value={value}
         maxLength={maxLength}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 w-full rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
       />
