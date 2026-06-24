@@ -215,6 +215,8 @@ export default function HomePage() {
 
       if (response.ok) return;
 
+      if (response.status === 404) return;
+
       if (response.status === 403 || response.status === 401) {
         window.localStorage.removeItem(frontendAccountKey);
         forceLogout(data.message ?? "账号状态已变更，请重新登录。");

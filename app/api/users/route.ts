@@ -36,7 +36,11 @@ export async function POST(request: Request) {
     const users = await readUsers();
     const user = users.find((item) => item.email === email);
 
-    if (!user || user.password !== password) {
+    if (!user) {
+      return NextResponse.json({ message: "用户档案暂未同步。" }, { status: 404 });
+    }
+
+    if (user.password !== password) {
       return NextResponse.json({ message: "账号信息已变更，请重新登录。" }, { status: 401 });
     }
 
