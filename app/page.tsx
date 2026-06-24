@@ -29,6 +29,16 @@ type FrontendAccount = {
   password: string;
 };
 
+type AuthResponse = {
+  message?: string;
+  user?: {
+    email: string;
+    status: "active" | "frozen";
+    createdAt: string;
+    lastLoginAt: string;
+  };
+};
+
 const frontendAccountKey = "ai-employee-frontend-account";
 const appliedOrdersKey = "ai-employee-applied-orders";
 const frontendAuthVersion = "frontend-auth-ui-v2";
@@ -222,7 +232,7 @@ export default function HomePage() {
     window.localStorage.setItem(appliedOrdersKey, JSON.stringify([...ids]));
   }
 
-  function submitAuth(event: React.FormEvent<HTMLFormElement>) {
+  async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const email = authEmail.trim().toLowerCase();
@@ -243,9 +253,19 @@ export default function HomePage() {
       return;
     }
 
-    const account = readFrontendAccount();
-
     if (authMode === "register") {
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "register", email, password }),
+      });
+      const data = (await response.json().catch(() => ({}))) as AuthResponse;
+
+      if (!response.ok) {
+        setAuthMessage(data.message ?? "注册失败，请稍后再试。");
+        return;
+      }
+
       window.localStorage.setItem(frontendAccountKey, JSON.stringify({ email, password }));
       updateState({
         isLoggedIn: true,
@@ -259,11 +279,19 @@ export default function HomePage() {
       return;
     }
 
-    if (!account || account.email !== email || account.password !== password) {
-      setAuthMessage("账号或密码错误，请先注册或重新输入。");
+    const response = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "login", email, password }),
+    });
+    const data = (await response.json().catch(() => ({}))) as AuthResponse;
+
+    if (!response.ok) {
+      setAuthMessage(data.message ?? "账号或密码错误，请先注册或重新输入。");
       return;
     }
 
+    window.localStorage.setItem(frontendAccountKey, JSON.stringify({ email, password }));
     updateState({ isLoggedIn: true });
     setStatus(`已登录：${email}`);
     closeAuth();

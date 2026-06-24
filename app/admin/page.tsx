@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCcw, Save, Trash2 } from "lucide-react";
+import { KeyRound, Lock, RotateCcw, Save, Trash2, Unlock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   clearWalletOrders,
@@ -62,6 +62,15 @@ type UserSummary = {
   latestOrderAt: string;
 };
 
+type AdminUserProfile = {
+  email: string;
+  password: string;
+  status: "active" | "frozen";
+  createdAt: string;
+  lastLoginAt: string;
+  loginRecords: string[];
+};
+
 const defaultIntegrationConfig: IntegrationConfig = {
   aiChat: {
     enabled: false,
@@ -95,6 +104,10 @@ export default function AdminPage() {
   const [view, setView] = useState<AdminView>("dashboard");
   const [filter, setFilter] = useState<OrderFilter>("all");
   const [userQuery, setUserQuery] = useState("");
+  const [users, setUsers] = useState<AdminUserProfile[]>([]);
+  const [selectedUserEmail, setSelectedUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [userActionText, setUserActionText] = useState("");
   const [integrationConfig, setIntegrationConfig] =
     useState<IntegrationConfig>(defaultIntegrationConfig);
   const [savedText, setSavedText] = useState("");
@@ -104,6 +117,7 @@ export default function AdminPage() {
     setOrders(readWalletOrders());
     void loadServerState();
     void loadServerOrders();
+    void loadUsers();
     void loadIntegrations();
 
     function syncOrders(event?: Event) {
@@ -132,8 +146,19 @@ export default function AdminPage() {
     return orders.filter((order) => order.type === filter);
   }, [filter, orders]);
 
-  const allUserSummaries = useMemo(() => buildUserSummaries(orders, ""), [orders]);
-  const userSummaries = useMemo(() => buildUserSummaries(orders, userQuery), [orders, userQuery]);
+  const allUserSummaries = useMemo(() => buildUserSummaries(orders, "", users), [orders, users]);
+  const userSummaries = useMemo(
+    () => buildUserSummaries(orders, userQuery, users),
+    [orders, userQuery, users],
+  );
+  const selectedUser = useMemo(
+    () => users.find((user) => user.email === selectedUserEmail),
+    [selectedUserEmail, users],
+  );
+  const selectedUserSummary = useMemo(
+    () => allUserSummaries.find((user) => user.email === selectedUserEmail),
+    [allUserSummaries, selectedUserEmail],
+  );
   const filteredUserOrders = useMemo(() => {
     const query = userQuery.trim().toLowerCase();
 
@@ -208,6 +233,42 @@ export default function AdminPage() {
       setIntegrationConfig(data.config);
     } catch {
       setIntegrationConfig(defaultIntegrationConfig);
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      const response = await fetch("/api/admin/users", { cache: "no-store" });
+      const data = (await response.json()) as { users?: AdminUserProfile[] };
+
+      if (!response.ok || !data.users) return;
+
+      setUsers(data.users);
+    } catch {
+      setUsers([]);
+    }
+  }
+
+  async function updateSelectedUser(patch: Partial<Pick<AdminUserProfile, "status" | "password">>) {
+    if (!selectedUserEmail) return;
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: selectedUserEmail, ...patch }),
+      });
+      const data = (await response.json()) as { user?: AdminUserProfile; message?: string };
+
+      if (!response.ok || !data.user) throw new Error(data.message ?? "User update failed");
+
+      setUsers((current) =>
+        current.map((user) => (user.email === data.user?.email ? data.user : user)),
+      );
+      setUserActionText("用户资料已更新。");
+      setNewUserPassword("");
+    } catch {
+      setUserActionText("用户资料更新失败，请稍后再试。");
     }
   }
 
@@ -862,6 +923,102 @@ export default function AdminPage() {
               />
             </div>
 
+            {selectedUserEmail ? (
+              <div className="mt-4 rounded-lg border border-black/10 bg-cloud p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">用户资料卡</p>
+                    <h3 className="mt-1 text-xl font-semibold">{selectedUserEmail}</h3>
+                    <p className="mt-1 text-sm text-ink/55">
+                      状态：{selectedUser?.status === "frozen" ? "已冻结" : "正常"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!selectedUser}
+                    onClick={() =>
+                      updateSelectedUser({
+                        status: selectedUser?.status === "frozen" ? "active" : "frozen",
+                      })
+                    }
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:bg-jade disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {selectedUser?.status === "frozen" ? (
+                      <Unlock className="h-4 w-4" />
+                    ) : (
+                      <Lock className="h-4 w-4" />
+                    )}
+                    {selectedUser?.status === "frozen" ? "解冻用户" : "封号冻结"}
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <ReadOnlyMetric
+                    label="用户余额"
+                    value={`¥${(selectedUserSummary?.userBalance ?? 0).toFixed(2)}`}
+                  />
+                  <ReadOnlyMetric
+                    label="充值总额"
+                    value={`¥${(selectedUserSummary?.rechargeAmount ?? 0).toFixed(2)}`}
+                  />
+                  <ReadOnlyMetric
+                    label="提现总额"
+                    value={`¥${(selectedUserSummary?.withdrawAmount ?? 0).toFixed(2)}`}
+                  />
+                  <ReadOnlyMetric
+                    label="AI 余额"
+                    value={`¥${(selectedUserSummary?.aiBalance ?? 0).toFixed(2)}`}
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+                  <div className="rounded-lg bg-white p-4">
+                    <p className="text-sm text-ink/55">注册时间</p>
+                    <p className="mt-1 font-semibold">{formatTime(selectedUser?.createdAt ?? "")}</p>
+                    <p className="mt-4 text-sm text-ink/55">最近登录</p>
+                    <p className="mt-1 font-semibold">{formatTime(selectedUser?.lastLoginAt ?? "")}</p>
+                  </div>
+                  <div className="rounded-lg bg-white p-4">
+                    <p className="text-sm font-semibold">登录记录</p>
+                    <div className="mt-2 max-h-32 space-y-1 overflow-auto text-sm text-ink/60">
+                      {selectedUser?.loginRecords.length ? (
+                        selectedUser.loginRecords.map((record) => (
+                          <p key={record}>{formatTime(record)}</p>
+                        ))
+                      ) : (
+                        <p>暂无登录记录</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={newUserPassword}
+                    onChange={(event) => setNewUserPassword(event.target.value)}
+                    placeholder="输入新密码，至少 6 位"
+                    type="password"
+                    className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-jade sm:max-w-xs"
+                  />
+                  <button
+                    type="button"
+                    disabled={!selectedUser}
+                    onClick={() => updateSelectedUser({ password: newUserPassword })}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold transition hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    修改密码
+                  </button>
+                </div>
+                {!selectedUser ? (
+                  <p className="mt-3 text-sm font-semibold text-amber-700">
+                    该用户来自历史订单记录，还没有完整注册档案，需用户注册或登录后才能管理账号。
+                  </p>
+                ) : null}
+                {userActionText ? <p className="mt-3 text-sm font-semibold text-jade">{userActionText}</p> : null}
+              </div>
+            ) : null}
+
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-left text-sm">
                 <thead>
@@ -881,7 +1038,17 @@ export default function AdminPage() {
                 <tbody>
                   {userSummaries.length ? (
                     userSummaries.map((user) => (
-                      <tr key={user.email} className="border-b border-black/5">
+                      <tr
+                        key={user.email}
+                        onClick={() => {
+                          setSelectedUserEmail(user.email);
+                          setUserActionText("");
+                          setNewUserPassword("");
+                        }}
+                        className={`cursor-pointer border-b border-black/5 transition hover:bg-cloud ${
+                          selectedUserEmail === user.email ? "bg-mint/40" : ""
+                        }`}
+                      >
                         <td className="py-3 pr-4 font-semibold">{user.email}</td>
                         <td className="py-3 pr-4">{user.orderCount}</td>
                         <td className="py-3 pr-4">{user.pendingCount}</td>
@@ -963,9 +1130,26 @@ function sumOrders(orders: WalletOrder[], type: WalletOrderType) {
     .reduce((sum, order) => sum + order.amount, 0);
 }
 
-function buildUserSummaries(orders: WalletOrder[], query: string) {
+function buildUserSummaries(orders: WalletOrder[], query: string, users: AdminUserProfile[] = []) {
   const normalizedQuery = query.trim().toLowerCase();
   const summaries = new Map<string, UserSummary>();
+
+  users.forEach((user) => {
+    if (normalizedQuery && !user.email.includes(normalizedQuery)) return;
+
+    summaries.set(user.email, {
+      email: user.email,
+      orderCount: 0,
+      rechargeAmount: 0,
+      withdrawAmount: 0,
+      fundAmount: 0,
+      returnAmount: 0,
+      pendingCount: 0,
+      userBalance: 0,
+      aiBalance: 0,
+      latestOrderAt: user.lastLoginAt || user.createdAt,
+    });
+  });
 
   orders.forEach((order) => {
     if (!order.userEmail) return;
@@ -996,7 +1180,7 @@ function buildUserSummaries(orders: WalletOrder[], query: string) {
       returnAmount: current.returnAmount + successAmount(order, "return_ai"),
     };
 
-    if (new Date(order.createdAt).getTime() >= new Date(current.latestOrderAt).getTime()) {
+    if (toTime(order.createdAt) >= toTime(current.latestOrderAt)) {
       next.userBalance = order.userBalanceAfter;
       next.aiBalance = order.aiBalanceAfter;
       next.latestOrderAt = order.createdAt;
@@ -1006,8 +1190,7 @@ function buildUserSummaries(orders: WalletOrder[], query: string) {
   });
 
   return [...summaries.values()].sort(
-    (left, right) =>
-      new Date(right.latestOrderAt).getTime() - new Date(left.latestOrderAt).getTime(),
+    (left, right) => toTime(right.latestOrderAt) - toTime(left.latestOrderAt),
   );
 }
 
@@ -1022,12 +1205,23 @@ function needsReview(order: WalletOrder) {
 }
 
 function formatTime(value: string) {
+  if (!value) return "-";
+  const time = new Date(value);
+
+  if (Number.isNaN(time.getTime())) return "-";
+
   return new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(time);
+}
+
+function toTime(value: string) {
+  const time = new Date(value).getTime();
+
+  return Number.isNaN(time) ? 0 : time;
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
