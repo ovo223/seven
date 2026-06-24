@@ -20,12 +20,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="text-base font-semibold">AI 员工后台</span>
             </Link>
             <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-ink"
-              >
-                查看前台
-              </Link>
               {!isAdminLogin ? (
                 <a
                   href="/api/admin/logout"
