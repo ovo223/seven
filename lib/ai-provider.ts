@@ -1,3 +1,5 @@
+import { readIntegrationConfig } from "@/lib/integration-config";
+
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
@@ -13,6 +15,9 @@ export type ChatReply = {
 const provider = (process.env.AI_PROVIDER ?? "mock") as ChatProvider;
 
 export async function generateAiReply(messages: ChatMessage[]): Promise<ChatReply> {
+  const configuredReply = await generateConfiguredReply(messages);
+  if (configuredReply) return configuredReply;
+
   switch (provider) {
     case "openai":
       return generateOpenAiReply(messages);
@@ -25,6 +30,56 @@ export async function generateAiReply(messages: ChatMessage[]): Promise<ChatRepl
     case "mock":
     default:
       return generateMockReply(messages);
+  }
+}
+
+async function generateConfiguredReply(messages: ChatMessage[]): Promise<ChatReply | null> {
+  const { aiChat } = await readIntegrationConfig();
+
+  if (!aiChat.enabled || aiChat.provider === "mock") return null;
+  if (!aiChat.apiUrl || !aiChat.apiKey) return providerNotConfigured(aiChat.provider, messages);
+
+  const configuredMessages = aiChat.systemPrompt.trim()
+    ? [{ role: "system" as const, content: aiChat.systemPrompt }, ...messages]
+    : messages;
+
+  try {
+    const response = await fetch(aiChat.apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${aiChat.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: aiChat.model || undefined,
+        messages: configuredMessages,
+        stream: false,
+      }),
+    });
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      output_text?: string;
+      content?: string;
+      message?: string;
+    };
+
+    if (!response.ok) throw new Error("AI provider request failed");
+
+    return {
+      provider: aiChat.provider,
+      content:
+        data.choices?.[0]?.message?.content ??
+        data.output_text ??
+        data.content ??
+        data.message ??
+        "AI 接口已返回，但没有识别到回复内容。",
+    };
+  } catch {
+    return {
+      provider: aiChat.provider,
+      content: "AI 聊天接口调用失败，请在后台检查接口地址、密钥和模型配置。",
+    };
   }
 }
 

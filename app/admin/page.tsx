@@ -20,7 +20,26 @@ import {
 } from "@/lib/platform-state";
 
 type OrderFilter = "all" | WalletOrderType;
-type AdminView = "dashboard" | "users" | "orders";
+type AdminView = "dashboard" | "users" | "orders" | "integrations";
+
+type IntegrationConfig = {
+  aiChat: {
+    enabled: boolean;
+    provider: "mock" | "openai" | "deepseek" | "qwen" | "custom";
+    apiUrl: string;
+    apiKey: string;
+    model: string;
+    systemPrompt: string;
+  };
+  recharge: {
+    enabled: boolean;
+    provider: "manual" | "wechat_pay" | "alipay" | "stripe" | "bank_transfer" | "custom";
+    apiUrl: string;
+    merchantId: string;
+    apiKey: string;
+    instructions: string;
+  };
+};
 
 type UserSummary = {
   email: string;
@@ -35,12 +54,33 @@ type UserSummary = {
   latestOrderAt: string;
 };
 
+const defaultIntegrationConfig: IntegrationConfig = {
+  aiChat: {
+    enabled: false,
+    provider: "mock",
+    apiUrl: "",
+    apiKey: "",
+    model: "",
+    systemPrompt: "",
+  },
+  recharge: {
+    enabled: false,
+    provider: "manual",
+    apiUrl: "",
+    merchantId: "",
+    apiKey: "",
+    instructions: "请提交充值订单，后台审核通过后到账。",
+  },
+};
+
 export default function AdminPage() {
   const [state, setState] = useState<PlatformState>(defaultPlatformState);
   const [orders, setOrders] = useState<WalletOrder[]>([]);
   const [view, setView] = useState<AdminView>("dashboard");
   const [filter, setFilter] = useState<OrderFilter>("all");
   const [userQuery, setUserQuery] = useState("");
+  const [integrationConfig, setIntegrationConfig] =
+    useState<IntegrationConfig>(defaultIntegrationConfig);
   const [savedText, setSavedText] = useState("");
 
   useEffect(() => {
@@ -48,6 +88,7 @@ export default function AdminPage() {
     setOrders(readWalletOrders());
     void loadServerState();
     void loadServerOrders();
+    void loadIntegrations();
 
     function syncOrders(event?: Event) {
       const customEvent = event as CustomEvent<WalletOrder[]>;
@@ -141,6 +182,19 @@ export default function AdminPage() {
     }
   }
 
+  async function loadIntegrations() {
+    try {
+      const response = await fetch("/api/admin/integrations", { cache: "no-store" });
+      const data = (await response.json()) as { config?: IntegrationConfig };
+
+      if (!response.ok || !data.config) return;
+
+      setIntegrationConfig(data.config);
+    } catch {
+      setIntegrationConfig(defaultIntegrationConfig);
+    }
+  }
+
   async function save() {
     writePlatformState(state);
 
@@ -159,6 +213,24 @@ export default function AdminPage() {
       setSavedText("已保存到服务器，前台已同步。");
     } catch {
       setSavedText("已保存到当前浏览器，服务器同步失败。");
+    }
+  }
+
+  async function saveIntegrations() {
+    try {
+      const response = await fetch("/api/admin/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: integrationConfig }),
+      });
+      const data = (await response.json()) as { config?: IntegrationConfig };
+
+      if (!response.ok || !data.config) throw new Error("Integration save failed");
+
+      setIntegrationConfig(data.config);
+      setSavedText("接口配置已保存。");
+    } catch {
+      setSavedText("接口配置保存失败，请稍后再试。");
     }
   }
 
@@ -254,6 +326,15 @@ export default function AdminPage() {
           }`}
         >
           钱包订单
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("integrations")}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            view === "integrations" ? "bg-ink text-white" : "text-ink hover:bg-cloud"
+          }`}
+        >
+          接口配置
         </button>
       </div>
 
@@ -460,6 +541,201 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+      ) : view === "integrations" ? (
+        <div className="space-y-5">
+          <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">AI 聊天接口</h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  配置后，前台聊天会优先调用这里的服务端接口。
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  checked={integrationConfig.aiChat.enabled}
+                  onChange={(event) =>
+                    setIntegrationConfig((current) => ({
+                      ...current,
+                      aiChat: { ...current.aiChat, enabled: event.target.checked },
+                    }))
+                  }
+                />
+                启用
+              </label>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="接口类型"
+                value={integrationConfig.aiChat.provider}
+                options={[
+                  ["mock", "模拟接口"],
+                  ["openai", "OpenAI"],
+                  ["deepseek", "DeepSeek"],
+                  ["qwen", "通义千问"],
+                  ["custom", "自定义"],
+                ]}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    aiChat: {
+                      ...current.aiChat,
+                      provider: value as IntegrationConfig["aiChat"]["provider"],
+                    },
+                  }))
+                }
+              />
+              <TextField
+                label="模型名称"
+                value={integrationConfig.aiChat.model}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    aiChat: { ...current.aiChat, model: value },
+                  }))
+                }
+              />
+              <TextField
+                label="接口地址"
+                value={integrationConfig.aiChat.apiUrl}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    aiChat: { ...current.aiChat, apiUrl: value },
+                  }))
+                }
+              />
+              <TextField
+                label="API Key"
+                value={integrationConfig.aiChat.apiKey}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    aiChat: { ...current.aiChat, apiKey: value },
+                  }))
+                }
+              />
+            </div>
+            <label className="mt-4 block">
+              <span className="text-sm font-medium">系统提示词</span>
+              <textarea
+                value={integrationConfig.aiChat.systemPrompt}
+                rows={4}
+                onChange={(event) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    aiChat: { ...current.aiChat, systemPrompt: event.target.value },
+                  }))
+                }
+                className="mt-2 w-full resize-none rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
+              />
+            </label>
+          </section>
+
+          <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">充值方式接口</h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  配置后，前台充值会先提交到这里的充值接口，再生成后台订单。
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  checked={integrationConfig.recharge.enabled}
+                  onChange={(event) =>
+                    setIntegrationConfig((current) => ({
+                      ...current,
+                      recharge: { ...current.recharge, enabled: event.target.checked },
+                    }))
+                  }
+                />
+                启用
+              </label>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="充值方式"
+                value={integrationConfig.recharge.provider}
+                options={[
+                  ["manual", "人工审核"],
+                  ["wechat_pay", "微信支付"],
+                  ["alipay", "支付宝"],
+                  ["stripe", "Stripe"],
+                  ["bank_transfer", "银行转账"],
+                  ["custom", "自定义"],
+                ]}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    recharge: {
+                      ...current.recharge,
+                      provider: value as IntegrationConfig["recharge"]["provider"],
+                    },
+                  }))
+                }
+              />
+              <TextField
+                label="商户号"
+                value={integrationConfig.recharge.merchantId}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    recharge: { ...current.recharge, merchantId: value },
+                  }))
+                }
+              />
+              <TextField
+                label="接口地址"
+                value={integrationConfig.recharge.apiUrl}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    recharge: { ...current.recharge, apiUrl: value },
+                  }))
+                }
+              />
+              <TextField
+                label="接口密钥"
+                value={integrationConfig.recharge.apiKey}
+                onChange={(value) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    recharge: { ...current.recharge, apiKey: value },
+                  }))
+                }
+              />
+            </div>
+            <label className="mt-4 block">
+              <span className="text-sm font-medium">充值说明</span>
+              <textarea
+                value={integrationConfig.recharge.instructions}
+                rows={4}
+                onChange={(event) =>
+                  setIntegrationConfig((current) => ({
+                    ...current,
+                    recharge: { ...current.recharge, instructions: event.target.value },
+                  }))
+                }
+                className="mt-2 w-full resize-none rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
+              />
+            </label>
+          </section>
+
+          <button
+            type="button"
+            onClick={saveIntegrations}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-jade"
+          >
+            <Save className="h-4 w-4" />
+            保存接口配置
+          </button>
+          {savedText ? <p className="text-center text-sm font-semibold text-jade">{savedText}</p> : null}
+        </div>
       ) : (
         <div className="space-y-5">
           <section className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
@@ -690,6 +966,35 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 w-full rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
       />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<[string, string]>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 w-full rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
+      >
+        {options.map(([optionValue, labelText]) => (
+          <option key={optionValue} value={optionValue}>
+            {labelText}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

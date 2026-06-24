@@ -319,6 +319,15 @@ export default function HomePage() {
     setStatus("正在提交充值订单...");
 
     try {
+      const walletResponse = await fetch("/api/wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "recharge", amount }),
+      });
+      const walletData = (await walletResponse.json()) as { message?: string };
+
+      if (!walletResponse.ok) throw new Error("Wallet request failed");
+
       await recordOrder({
         type: "recharge",
         amount,
@@ -326,7 +335,7 @@ export default function HomePage() {
         nextState: state,
         note: "用户钱包充值",
       });
-      setStatus(`充值订单已提交，等待后台审核：¥${amount.toFixed(2)}。`);
+      setStatus(walletData.message ?? `充值订单已提交，等待后台审核：¥${amount.toFixed(2)}。`);
     } catch {
       setStatus("充值订单提交失败，请稍后再试。");
     } finally {
