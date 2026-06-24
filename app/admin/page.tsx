@@ -351,6 +351,16 @@ export default function AdminPage() {
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
         <section className="space-y-5">
           <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
+            <h2 className="text-lg font-semibold">全平台钱包与收益</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <ReadOnlyMetric label="用户钱包总额" value={`¥${platformSummary.userBalance.toFixed(2)}`} />
+              <ReadOnlyMetric label="AI 钱包总额" value={`¥${platformSummary.aiBalance.toFixed(2)}`} />
+              <ReadOnlyMetric label="当日收益" value={`¥${state.dailyIncome.toFixed(2)}`} />
+              <ReadOnlyMetric label="总收益" value={`¥${state.totalIncome.toFixed(2)}`} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
             <h2 className="text-lg font-semibold">基础信息</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <TextField
@@ -388,16 +398,6 @@ export default function AdminPage() {
                 className="mt-2 w-full resize-none rounded-lg border border-black/10 bg-cloud px-3 py-2 outline-none focus:border-jade"
               />
             </label>
-          </div>
-
-          <div className="rounded-lg border border-black/5 bg-white p-5 shadow-soft">
-            <h2 className="text-lg font-semibold">全平台钱包与收益</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <ReadOnlyMetric label="用户钱包总额" value={`¥${platformSummary.userBalance.toFixed(2)}`} />
-              <ReadOnlyMetric label="AI 钱包总额" value={`¥${platformSummary.aiBalance.toFixed(2)}`} />
-              <ReadOnlyMetric label="当日收益" value={`¥${state.dailyIncome.toFixed(2)}`} />
-              <ReadOnlyMetric label="总收益" value={`¥${state.totalIncome.toFixed(2)}`} />
-            </div>
           </div>
 
         </section>
